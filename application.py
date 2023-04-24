@@ -13,10 +13,9 @@ BUFFER_SIZE = 1472
 
 # Define the simplified TCP header structure
 
-file_path = 'received_file.png'
-
 
 def run_server(ip, port):
+    file_path = 'received_file.png'
     try:
         server_socket = socket(AF_INET, SOCK_DGRAM)
         server_socket.bind((ip, port))
@@ -27,7 +26,30 @@ def run_server(ip, port):
         print("Failed to bind. Error:", e)
         sys.exit()
 
-    print("Receiving data")
+    print("Performing three-way handshake")
+
+    while True:
+        syn_packet, addr = server_socket.recvfrom(BUFFER_SIZE)
+        syn_header = syn_packet[:12]
+        seq, ack_nr, flags, win = parse_header(syn_header)
+        syn, ack, fin = parse_flags(flags)
+
+        if syn == 1 and ack != 1:
+            print("Received SYN message")
+            data = b''
+            sequence_nr = 0
+            ack_nr = seq + 1
+            flags = 12
+
+            SYN_ACK = create_packet(sequence_nr, ack_nr, flags, 0, data)
+
+            server_socket.sendto(SYN_ACK, addr)
+            print("Sent SYN-ACK message")
+
+        elif ack == 1 and syn != 1:
+            print("Recieved final ACK message")
+            break
+
     with open(file_path, 'wb') as file:
         while True:
             data, addr = server_socket.recvfrom(BUFFER_SIZE)
@@ -36,7 +58,6 @@ def run_server(ip, port):
             #print(f"Header length:", len(header_msg))
 
             seq, ack_nr, flags, win = parse_header(header_msg)
-            print("Window size is:", win)
 
             syn, ack, fin = parse_flags(flags)
             print(f"Header values seq={seq}, ack={ack}, and fin={fin}")
@@ -86,8 +107,33 @@ def run_client(server_ip, server_prt):
     file = open(file_path, 'rb')
 
     sequence_number = 0
+    data = b''
+    ack_nr = 0
+    win = 64
+    flags = 8
+    syn_packet = create_packet(sequence_number, ack_nr, flags, win, data)
+    client_sock.sendto(syn_packet, (server_ip, server_prt))
+
+    handshake_complete = False
+    while not handshake_complete:
+        syn_ack_packet, addr = client_sock.recvfrom(BUFFER_SIZE)
+        seq, ack_nr, flags, win = parse_header(syn_ack_packet[:12])
+        syn, ack, fin = parse_flags(flags)
+
+        if ack == 1 and ack_nr == sequence_number + 1 and syn == 1:
+            print("Received SYN-ACK message")
+            ack_nr = sequence_number + 1
+            flags = 4
+            sequence_number += 1
+
+            ack_packet = create_packet(sequence_number, ack_nr, flags, win, data)
+            client_sock.sendto(ack_packet, addr)
+            print("Sent ACK message")
+            handshake_complete = True
+
+
     while True:
-        data = file.read(1040)
+        data = file.read(1460)
 
         if not data:
             print("Sender FIN message")
