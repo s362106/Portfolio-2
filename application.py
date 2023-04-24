@@ -19,6 +19,7 @@ def run_server(ip, port):
     try:
         server_socket = socket(AF_INET, SOCK_DGRAM)
         server_socket.bind((ip, port))
+        server_socket.settimeout(0.5)
 
         print(f"Server listening on {ip}:{port}")
 
@@ -28,26 +29,27 @@ def run_server(ip, port):
 
     print("Performing three-way handshake")
 
+    expected_seq = 0
+
     while True:
         syn_packet, addr = server_socket.recvfrom(BUFFER_SIZE)
         syn_header = syn_packet[:12]
         seq, ack_nr, flags, win = parse_header(syn_header)
         syn, ack, fin = parse_flags(flags)
 
-        if syn == 1 and ack != 1:
+        if syn and not ack:
             print("Received SYN message")
-            data = b''
             sequence_nr = 0
             ack_nr = seq + 1
             flags = 12
 
-            SYN_ACK = create_packet(sequence_nr, ack_nr, flags, 0, data)
+            SYN_ACK = create_packet(sequence_nr, ack_nr, flags, 0, b'')
 
             server_socket.sendto(SYN_ACK, addr)
             print("Sent SYN-ACK message")
 
-        elif ack == 1 and syn != 1:
-            print("Recieved final ACK message")
+        elif not syn and ack:
+            print("Received final ACK message")
             break
 
     with open(file_path, 'wb') as file:
@@ -55,43 +57,24 @@ def run_server(ip, port):
             data, addr = server_socket.recvfrom(BUFFER_SIZE)
             header_msg = data[:12]
             msg = data[12:]
-            #print(f"Header length:", len(header_msg))
 
             seq, ack_nr, flags, win = parse_header(header_msg)
 
             syn, ack, fin = parse_flags(flags)
             print(f"Header values seq={seq}, ack={ack}, and fin={fin}")
 
+
             file.write(msg)
 
-            if fin == 1:
+
+            if fin:
                 ack_nr = seq +1
                 flags = 6
-                data = b''
-                packet = create_packet(seq, ack_nr, flags, 0, data)
+                packet = create_packet(seq, ack_nr, flags, 0, b'')
 
                 server_socket.sendto(packet, addr)
                 break
 
-
-            # check for SYN message
-            '''if syn == 1:
-                print("Received SYN message")
-                data = b''
-                sequence_nr = 0
-                acknowledgement_nr = seq + 1
-                window = 0
-                flags = 12
-    
-                # Send SYN-ACK message
-                SYN_ACK = create_packet(sequence_nr, acknowledgement_nr, flags, window, data)
-    
-                server_socket.sendto(SYN_ACK, addr)
-                print("Sent SYN-ACK message")
-    
-            if ack == 1 and syn != 1:
-                print("Received final ACK message")
-                break'''
 
 def run_client(server_ip, server_prt):
     try:
@@ -120,7 +103,7 @@ def run_client(server_ip, server_prt):
         seq, ack_nr, flags, win = parse_header(syn_ack_packet[:12])
         syn, ack, fin = parse_flags(flags)
 
-        if ack == 1 and ack_nr == sequence_number + 1 and syn == 1:
+        if ack and syn and ack_nr == sequence_number + 1:
             print("Received SYN-ACK message")
             ack_nr = sequence_number + 1
             flags = 4
