@@ -127,99 +127,12 @@ def run_client(server_ip, server_prt):
             client_sock.sendto(packet, (server_ip, server_prt))
             break
 
-        packet = create_packet(seq=sequence_number, ack=0, flags=0, win=0, data=data)
-        client_sock.sendto(packet, (server_ip, server_prt))
-        sequence_number += 1
+        else:
+            packet = create_packet(seq=sequence_number, ack=0, flags=0, win=0, data=data)
+            client_sock.sendto(packet, (server_ip, server_prt))
+            sequence_number += 1
+
     client_sock.close()
-    '''sequence_nr = 0
-    acknowledgement_nr = 0
-    window = 64
-    flags = 8
-    data = b''
-    SYN = create_packet(sequence_nr, acknowledgement_nr, flags, window, data)
-
-    client_sock.sendto(SYN, (server_ip, server_prt))
-    print("Sent SYN message")
-
-    while True:
-        print("Receiving data")
-        server_packet, addr = client_sock.recvfrom(BUFFER_SIZE)
-        header = server_packet[:12]
-
-        seq, ack, flags, win = parse_header(header)
-        print("Window size is:", win)
-
-        syn, ack, fin = parse_flags(flags)
-        print(f"Header values seq={syn}, ack={ack}, and fin={fin}")
-
-        # ACK
-        if syn == 1 and ack == 1:
-            print("Received SYN-ACK message")
-            data = b''
-            sequence_nr = 1
-            acknowledgement_nr = seq + 1
-            window = 64
-            flags = 4
-            ACK = create_packet(sequence_nr, acknowledgement_nr, flags, window, data)
-
-            client_sock.sendto(ACK, addr)
-            print("Sent ACK message")'''
-
-
-
-'''def run_server(ip, port):
-    try:
-        server_socket = socket(AF_INET, SOCK_DGRAM)
-        server_socket.bind((ip, port))
-
-        print(f"Server listening on {ip}:{port}")
-
-    except Exception as e:
-        print("Failed to bind. Error:", e)
-        sys.exit()
-
-    file_path = 'received_file.txt'
-
-    with open(file_path, 'wb') as file:
-        while True:
-            data, addr = server_socket.recvfrom(BUFFER_SIZE)
-
-            if not data:
-                break
-
-            file.write(data)
-
-
-    server_socket.close()
-
-def run_client(server_ip, server_prt):
-        try:
-            client_sock = socket(AF_INET, SOCK_DGRAM)
-
-        except Exception as e:
-            print("Failed to send data. Error:", e)
-            sys.exit()
-
-        file_path = '/Users/fahmimohammed/fil.txt'
-
-        file = open(file_path, 'rb')
-        while True:
-
-            file_data = file.read(1460)
-
-            if not file_data:
-                break
-
-            sequence_nr = 0
-            acknowledgement_nr = 0
-            window = 64
-            flags = 0
-            header = create_packet(sequence_nr, acknowledgement_nr, flags, window, file_data)
-
-            client_sock.sendto(header, (server_ip, server_prt))
-
-        file.close()
-        client_sock.close()'''
 
 def check_ip(address):
     try:
