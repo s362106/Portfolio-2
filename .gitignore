@@ -31,3 +31,5 @@ Temporary Items
 
 # Ignore PyCharm config files
 .idea
+
+__pycache__
