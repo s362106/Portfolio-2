@@ -58,10 +58,12 @@ def run_server(ip, port):
             print("Received final ACK message from", addr)
             print(f"ACK_PACKET: seq={seq}, ack_nr={ack_nr}, flags={flags}, win={win}")
             print(f"ACK_FLAGS: syn={syn}, ack={ack}, fin={fin}")
-            expected_seq += 1
             handshake_complete = True
 
     print("\n\nStarting to receive file data")
+
+
+
     with open(file_path, 'wb') as file:
         while True:
             msg, addr = server_socket.recvfrom(BUFFER_SIZE)
@@ -146,6 +148,8 @@ def run_client(server_ip, server_port):
         except timeout:
             print("Timeout: Resending SYN packet")
             client_sock.sendto(syn_packet, (server_ip, server_port))
+
+
 
     print("Done with three-way handshake")
     while True:
