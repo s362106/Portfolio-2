@@ -30,8 +30,6 @@ def run_server(ip, port):
         print("Failed to bind. Error:", e)
         sys.exit()
 
-    print("Performing three-way handshake")
-
     handshake_complete = False
     while not handshake_complete:
         syn_packet, addr = server_socket.recvfrom(BUFFER_SIZE)
@@ -40,57 +38,21 @@ def run_server(ip, port):
         syn, ack, fin = parse_flags(flags)
 
         if syn and not ack:
-            print("Received SYN message")
+            print("Received SYN message from", addr)
             sequence_nr = 0
-            ack_nr = seq + 1
+            ack_nr = seq
             flags = 12
 
             SYN_ACK = create_packet(sequence_nr, ack_nr, flags, 0, b'')
 
             server_socket.sendto(SYN_ACK, addr)
-            print("Sent SYN-ACK message")
 
         elif not syn and ack:
-            print("Received final ACK message")
+            print("Received final ACK message from", addr)
             handshake_complete = True
 
-    expected_seq = 1
     with open(file_path, 'wb') as file:
-        while True:
-            data, addr = server_socket.recvfrom(BUFFER_SIZE)
-            header_msg = data[:12]
-            msg = data[12:]
 
-            seq, ack_nr, flags, win = parse_header(header_msg)
-
-            syn, ack, fin = parse_flags(flags)
-            print(f"Header values seq={seq}, ack={ack}, and fin={fin}")
-
-            if seq == expected_seq:
-                file.write(msg)
-
-                if fin:
-                    ack_nr = seq + 1
-                    flags = 6
-                    fin_ack_packet = create_packet(seq, ack_nr, flags, 0, b'')
-
-                    server_socket.sendto(fin_ack_packet, addr)
-                    break
-
-                else:
-                    ack_nr = seq +1
-                    flags = 4
-                    ack_packet = create_packet(seq, ack_nr, flags, 0, b'')
-
-                    server_socket.sendto(ack_packet, addr)
-
-                expected_seq += 1
-            else:
-                ack_nr = expected_seq
-                flags = 4
-                ack_packet = create_packet(seq, ack_nr, flags, win, b'')
-                server_socket.sendto(ack_packet, addr)
-                print(f"Resent ACK for packet {ack_nr}")
 
 
 def run_client(server_ip, server_prt):
@@ -103,15 +65,16 @@ def run_client(server_ip, server_prt):
 
     file_path = '/Users/fahmimohammed/Screenshot 2023-04-24 at 22.58.35.png'
 
-    print("Åpner filen")
+
     file = open(file_path, 'rb')
 
-    seq_nr = 0
+    seq = 0
     data = b''
     ack_nr = 0
     win = 64
     flags = 8
-    syn_packet = create_packet(seq_nr, ack_nr, flags, win, data)
+    expected_ack = 0
+    syn_packet = create_packet(seq, ack_nr, flags, win, data)
     client_sock.sendto(syn_packet, (server_ip, server_prt))
 
     handshake_complete = False
@@ -119,57 +82,25 @@ def run_client(server_ip, server_prt):
 
         client_sock.settimeout(0.5)
         try:
-            syn_ack_packet, addr = client_sock.recvfrom(BUFFER_SIZE)
+            syn_ack_packet, addr = client_sock.recvfrom(1472)
             seq, ack_nr, flags, win = parse_header(syn_ack_packet[:12])
             syn, ack, fin = parse_flags(flags)
 
-            if ack and syn and ack_nr == seq_nr + 1:
-                print("Received SYN-ACK message")
-                ack_nr = seq_nr + 1
+            if ack and syn and ack_nr == expected_ack:
+                print("Received SYN-ACK message from server", addr)
+                ack_nr = seq + 1
                 flags = 4
-                seq_nr += 1
+                seq += 1
 
-                ack_packet = create_packet(seq_nr, ack_nr, flags, win, data)
+                ack_packet = create_packet(seq, ack_nr, flags, win, data)
                 client_sock.sendto(ack_packet, addr)
-                print("Sent ACK message")
+                expected_ack += 1
+
                 handshake_complete = True
 
         except timeout:
             print("Timeout: Resending SYN packet")
             client_sock.sendto(syn_packet, (server_ip, server_prt))
-
-    while True:
-        data = file.read(1460)
-
-        if not data:
-            print("Sender FIN message")
-            flags = 2
-            data = b''
-            packet = create_packet(seq_nr, 0, flags, 64, data)
-
-            client_sock.sendto(packet, (server_ip, server_prt))
-            break
-
-        else:
-            packet = create_packet(seq=seq_nr, ack=0, flags=0, win=0, data=data)
-            client_sock.sendto(packet, (server_ip, server_prt))
-            seq_nr += 1
-
-            client_sock.settimeout(2)
-
-            while True:
-                try:
-                    ack_packet, addr = client_sock.recvfrom(BUFFER_SIZE)
-                    seq, ack_nr, flags, win = parse_header(ack_packet)
-                    syn, ack, fin = parse_flags(flags)
-
-                    if ack and ack_nr == seq_nr:
-                        print(f"Received ACK for packet {seq_nr}")
-                        break
-
-                except timeout:
-                    print(f"Timeout: Resending packet {seq_nr}")
-                    client_sock.sendto(packet, (server_ip, server_prt))
 
     client_sock.close()
 
