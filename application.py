@@ -49,19 +49,19 @@ def run_client(server_ip, server_port):
     try:
         sender_socket = socket(AF_INET, SOCK_DGRAM)
 
-
-        handshake_complete = drtp.start_handshake(sender_socket, server_ip, server_port)
+        handshake_complete = drtp.initiate_handshake(sender_socket, server_ip, server_port)
         if handshake_complete:
             #send_packet(sender_socket, (server_ip, server_port), file_path)
             print("Handshake complete")
-            data = b'Hei'
-            drtp.send_data(sender_socket, server_ip, server_port, data)
-
+            with open(file_path, 'rb') as file:
+                data = file.read(1460)
+                drtp.stop_and_wait(sender_socket, server_ip, server_port, data)
         else:
             print("Handshake not complete")
             sys.exit()
 
-    except:
+    except IOError:
+        print("Error opening file")
         sys.exit()
 
 
@@ -75,16 +75,16 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', type=int, default=12000, help='Choose the port number')
     parser.add_argument('-f', '--file_name', type=str, help='File name to store the data in')
     parser.add_argument('-r', '--reliability', type=str, help='Choose reliability of the data transfer')
-    parser.add_argument('-b', '--bind', type=str, default='127.0.0.1', help='Choose IP address')
+    parser.add_argument('-i', '--ip_address', type=str, default='127.0.0.1', help='Choose IP address')
 
     parser.add_argument('-c', '--client', action='store_true', help='Run in client mode')
 
     args = parser.parse_args()
 
     if args.server:
-        check_ip(args.bind)
-        run_server(args.bind, args.port)
+        check_ip(args.ip_address)
+        run_server(args.ip_address, args.port)
 
     elif args.client:
-        check_ip(args.bind)
-        run_client(args.bind, args.port)
+        check_ip(args.ip_address)
+        run_client(args.ip_address, args.port)

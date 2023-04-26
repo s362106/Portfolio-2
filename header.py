@@ -34,7 +34,7 @@ class DRTP:
 
         return syn, ack, fin
 
-    def start_handshake(self, sock, dest_addr, dest_port):
+    def initiate_handshake(self, sock, dest_addr, dest_port):
         # Step 1: Send SYN packet
         seq_num = 1
         ack_num = 0
@@ -68,7 +68,7 @@ class DRTP:
         except socket.timeout:
             # Timeout waiting for SYN-ACK, retry handshake
             sock.settimeout(None)
-            return self.start_handshake(sock, dest_addr, dest_port)
+            return self.initiate_handshake(sock, dest_addr, dest_port)
 
     def handle_handshake(self, sock):
         # Step 1: Wait for SYN packet
@@ -104,7 +104,7 @@ class DRTP:
                 return True
 
 
-    def send_data(self, sock, dest_ip, dest_port, data):
+    def stop_and_wait(self, sock, dest_ip, dest_port, data):
 
         seq_num = self.seq_num
         ack_num = 0
@@ -118,7 +118,7 @@ class DRTP:
         while not ack_received:
             try:
                 sock.sendto(packet, (dest_ip, dest_port))
-
+                sock.settimeout(0.5)
                 ack_packet, addr = sock.recvfrom(1472)
                 header = self.parse_header(ack_packet[:12])
                 seq_num, ack_num, flags, window_size = self.parse_header(header)
@@ -126,17 +126,20 @@ class DRTP:
 
                 if ack and ack_num == self.seq_num:
                     print("ACK received for sequence number:", ack_num)
+                    self.ack_num += 1
                     ack_received = True
 
+                elif ack and ack_num == self.seq_num - 1:
+                    print("Duplicate ACK for sequence number:", ack_num)
+                    sock.sendto(packet, (dest_ip, dest_port))
+
                 else:
-                    print("ACK mismatch, resending packet with sequence number:", seq_num)
+                    print("ACK not received for sequence_number:", seq_num)
                     sock.sendto(packet, (dest_ip, dest_port))
 
             except socket.timeout:
-                print("Timeout occurred")
+                print("Timeout occurred, resending packet with sequence number:", seq_num)
                 sock.sendto(packet, (dest_ip, dest_port))
-
-        self.seq_num += 1
 
 
     def receive_data(self, sock, packet, src_ip, src_port):
@@ -188,3 +191,29 @@ class DRTP:
         except Exception as e:
             print("Error:", e)
             return None
+
+
+    '''def stop_and_wait(self, sock, dest_addr, packet):
+        ack_received = False
+        while not ack_received:
+            try:
+                sock.sendto(packet, dest_addr)
+                print("Packet sent")
+
+                sock.settimeout(0.5)
+                data, addr = sock.recvfrom(1472)
+
+                ack_seq_num, ack_ack_num, ack_flags, ack_window_size = self.parse_header(data[:12])
+                ack_syn, ack_ack, ack_fin = self.parse_flags(ack_flags)
+
+                if ack_ack_num == self.seq_num and ack_ack:
+                    print("Ack received")
+                    ack_received = True
+
+                else:
+                    print("Duplicate ack received, resending packet")
+                    sock.sendto(packet, dest_addr)
+
+            except socket.timeout:
+                print("Timeout occurred, resending packet")
+                sock.sendto(packet, dest_addr)'''
