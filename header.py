@@ -34,70 +34,72 @@ def parse_flags(flags):
 
 def start_handshake(sock, dest_addr, dest_port):
     # Step 1: Send SYN packet
-    syn_packet = create_packet(seq=0, ack=0, flags=4, win=0, data=b'')
+    seq_num = 1
+    ack_num = 0
+    flags = 8
+    window_size = 0
+    syn_packet = create_packet(seq_num, ack_num, flags, window_size, b'')
     sock.sendto(syn_packet, (dest_addr, dest_port))
+    print("Sent SYN msg")
 
     # Step 2: Wait for SYN-ACK packet
-    sock.settimeout(0.5)
-    expected_ack = 1
+    #sock.settimeout(0.5)
+    #expected_ack = 1
     try:
         while True:
-            data, addr = sock.recvfrom(1024)
+            data, addr = sock.recvfrom(1472)
             header = data[:12]
             seq, ack_nr, flags, win = parse_header(header)
             syn, ack, fin = parse_flags(flags)
-            if syn == 1 and ack and ack_nr == expected_ack:
+            if syn and ack:
+                print("Received SYN_ACK msg")
+                print(f"SYN_ACK_NRs: seq={seq}, ack_nr={ack_nr}, flags={flags}, win={win}")
                 # SYN-ACK packet received, send ACK packet
-                ack_packet = create_packet(seq+1, seq, 0, 0, b'')
+                seq_num += 1
+                ack_num = parse_header(header)[0]
+                flags = 4
+                ack_packet = create_packet(seq_num, ack_num, flags, 0, b'')
                 sock.sendto(ack_packet, addr)
-                expected_ack += 1
-                break
+                print("Sent ACK msg")
+                #expected_ack += 1
+                return True
     except socket.timeout:
         # Timeout waiting for SYN-ACK, retry handshake
         sock.settimeout(None)
         return start_handshake(sock, dest_addr, dest_port)
 
-    # Step 3: Wait for ACK packet
-    try:
-        while True:
-            data, addr = sock.recvfrom(1024)
-            header = data[:12]
-            seq, ack, flags, win = parse_header(header)
-            syn, ack, fin = parse_flags(flags)
-            if ack == 1:
-                # ACK packet received, handshake complete
-                sock.settimeout(None)
-                return True
-    except socket.timeout:
-        # Timeout waiting for ACK, retry handshake
-        sock.settimeout(None)
-        return start_handshake(sock, dest_addr, dest_port)
 
-
-def handle_handshake(sock, src_addr, src_port):
+def handle_handshake(sock):
     # Step 1: Wait for SYN packet
+    seq_num = -1
     while True:
         data, addr = sock.recvfrom(1472)
         header = data[:12]
-        seq, ack, flags, win = parse_header(header)
+        seq, ack_nr, flags, win = parse_header(header)
         syn, ack, fin = parse_flags(flags)
-        if syn == 1 and ack == 0:
+        if syn and not ack:
+            print("Received SYN msg")
+            print(f"SYN_NRs: seq={seq}, ack_nr={ack_nr}, flags={flags}, win={win}")
             # SYN packet received, send SYN-ACK packet
-            seq = 0
+            seq_num += 1
+            ack_num = parse_header(header)[0]
             flags = 12
             win = 64
-            syn_ack_packet = create_packet(seq, seq, flags, win, b'')
-            sock.sendto(syn_ack_packet, addr)
-            break
 
-    # Step 2: Wait for ACK packet
-    while True:
-        data, addr = sock.recvfrom(1024)
-        header = data[:12]
-        seq, ack, flags, win = parse_header(header)
-        syn, ack, fin = parse_flags(flags)
-        if ack == 1:
-            # ACK packet received, handshake complete
+            syn_ack_packet = create_packet(seq_num, ack_num, flags, win, b'')
+            sock.sendto(syn_ack_packet, addr)
+            print("Sent SYN_ACK msg")
+
+        elif ack and not syn:
+            print("Received final ACK msg")
+            print(f"ACK_NRs: seq={seq}, ack_nr={ack_nr}, flags={flags}, win={win}")
+            ack_num = seq
+            seq_num += 1
+            flags = 4
+            win = 64
+            data = b''
+            ack_packet = create_packet(seq_num, ack_num, flags, win, data)
+            sock.sendto(ack_packet, addr)
             return True
 
 
