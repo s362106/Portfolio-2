@@ -35,6 +35,9 @@ def run_server(ip, port):
     handshake_complete = drtp.handle_handshake(server_socket)
     if handshake_complete:
         print("Handshake success")
+        packet, addr = server_socket.recvfrom(1472)
+        data = drtp.receive_data(server_socket, packet, addr[0], addr[1])
+        print(data)
 
     else:
         print("Handshake failed.")
@@ -51,9 +54,9 @@ def run_client(server_ip, server_port):
         if handshake_complete:
             #send_packet(sender_socket, (server_ip, server_port), file_path)
             print("Handshake complete")
-            with open(file_path, 'rb') as file:
-                data = file.read(1460)
-                packet = drtp.create_packet()
+            data = b'Hei'
+            drtp.send_data(sender_socket, server_ip, server_port, data)
+
         else:
             print("Handshake not complete")
             sys.exit()

@@ -1,5 +1,6 @@
+import socket
 import time
-from struct import  *
+from struct import *
 from socket import *
 import sys
 
@@ -101,3 +102,89 @@ class DRTP:
                 ack_packet = self.create_packet(seq_num, ack_num, flags, win, data)
                 sock.sendto(ack_packet, addr)
                 return True
+
+
+    def send_data(self, sock, dest_ip, dest_port, data):
+
+        seq_num = self.seq_num
+        ack_num = 0
+        flags = 0
+        window_size = 0
+
+        packet = self.create_packet(seq_num, ack_num, flags, window_size, data)
+        print(f"Sent data packet: seq_num={seq_num}, ack_num={ack_num}, flags={flags}, win={window_size}")
+
+        ack_received = False
+        while not ack_received:
+            try:
+                sock.sendto(packet, (dest_ip, dest_port))
+
+                ack_packet, addr = sock.recvfrom(1472)
+                header = self.parse_header(ack_packet[:12])
+                seq_num, ack_num, flags, window_size = self.parse_header(header)
+                syn, ack, fin = self.parse_flags(flags)
+
+                if ack and ack_num == self.seq_num:
+                    print("ACK received for sequence number:", ack_num)
+                    ack_received = True
+
+                else:
+                    print("ACK mismatch, resending packet with sequence number:", seq_num)
+                    sock.sendto(packet, (dest_ip, dest_port))
+
+            except socket.timeout:
+                print("Timeout occurred")
+                sock.sendto(packet, (dest_ip, dest_port))
+
+        self.seq_num += 1
+
+
+    def receive_data(self, sock, packet, src_ip, src_port):
+
+        header_from_msg = packet[:12]
+        data = packet[12:]
+
+        seq_num, ack_num, flags, window_size = self.parse_header(header_from_msg)
+        syn, ack, fin = self.parse_flags(flags)
+
+        if seq_num == self.ack_num:
+            self.ack_num += 1
+
+            ack_flag = 4
+            window_size = 64
+
+            ack_packet = self.create_packet(self.seq_num, self.ack_num, ack_flag, window_size, b'')
+            sock.sendto(ack_packet, (src_ip, src_port))
+
+            return data
+
+        else:
+            print("Unexpected sequence number, discarding packet:", seq_num)
+            ack_flag = 4
+            window_size = 64
+
+            print("Sending ACK for sequence number:", self.ack_num - 1)
+            ack_packet = self.create_packet(self.seq_num, self.ack_num - 1, ack_flag, window_size, b'')
+            sock.sendto(ack_packet, (src_ip, src_port))
+
+
+        try:
+            while True:
+                data, addr = sock.recvfrom(1472)
+                header = data[:12]
+                self.seq_num, self.ack_num, self.flags, self.window_size = self.parse_header(header)
+                syn, ack, fin = self.parse_flags(self.flags)
+                if not syn and not ack:
+                    print(f"Received data packet: seq_num={self.seq_num}, ack_num={self.ack_num}, flags={self.flags}, win={self.window_size}")
+                    # Data packet received, send ACK packet
+                    self.seq_num = ack
+                    self.ack_num = self.seq_num
+                    self.flags = 4
+                    ack_packet = self.create_packet(self.seq_num, self.ack_num, self.flags, self.window_size, data)
+                    sock.sendto(ack_packet, addr)
+                    print(f"Self.seq_num={self.seq_num}, self.ack_num={self.ack_num}")
+                    return data[12:]
+
+        except Exception as e:
+            print("Error:", e)
+            return None
