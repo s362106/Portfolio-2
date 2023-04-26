@@ -4,7 +4,7 @@ import argparse
 import sys
 from header import *
 
-
+# Define constants
 BUFFER_SIZE = 1472
 HEADER_SIZE = 12
 
@@ -20,105 +20,132 @@ def check_ip(address):
 
 
 def run_server(ip, port):
-    file_path = 'received_file.png'
+    file_path = 'received_file.png'             # Specify the file path for the received file
     try:
+        # Create a socket using UDP
         server_socket = socket(AF_INET, SOCK_DGRAM)
+        # Bind the socket to the given port
         server_socket.bind((ip, port))
-
+        # Print a message to indicate that the server is listening on the specified IP address and port number
         print(f"Server listening on {ip}:{port}")
 
     except OSError as e:
+        # Print an error message and exit the program if the socket cannot be bound to the specified IP address and port number
         print("Failed to bind. Error:", e)
         sys.exit()
 
+    # Set the initial values for the three-way handshake
     handshake_complete = False
     expected_seq = 0
     window = 64
 
     try:
+        # Begin the three-way handshake
         print("Establishing three-way handshake")
         while not handshake_complete:
+            # Receive a SYN packet from the client
             syn_packet, addr = server_socket.recvfrom(BUFFER_SIZE)
+            # Parse the header of the SYN packet
             syn_header = syn_packet[:12]
             seq, ack_nr, flags, win = parse_header(syn_header)
             syn, ack, fin = parse_flags(flags)
 
+            # Check if the SYN packet has been received and the ACK flag is not set and the sequence number is as expected
             if syn and not ack and expected_seq == seq:
                 print("Received SYN message from", addr)
                 print(f"SYN_PACKET: seq={seq}, ack_nr={ack_nr}, flags={flags}, win={win}")
                 print(f"SYN_FLAGS: syn={syn}, ack={ack}, fin={fin}")
+                # Send a SYN-ACK packet to the client
                 sequence_nr = 0
                 ack_nr = seq
                 flags = 12
 
                 SYN_ACK = create_packet(sequence_nr, ack_nr, flags, window, b'')
-
                 server_socket.sendto(SYN_ACK, addr)
+
+                # Update the expected sequence number
                 expected_seq += 1
 
+            # Check if the ACK flag is set and the sequence number is as expected
             elif not syn and ack and expected_seq == seq:
                 print("Received final ACK message from", addr)
                 print(f"ACK_PACKET: seq={seq}, ack_nr={ack_nr}, flags={flags}, win={win}")
                 print(f"ACK_FLAGS: syn={syn}, ack={ack}, fin={fin}")
+                # Set the handshake as complete
                 handshake_complete = True
 
     except OSError as e:
+        # Print an error message and close the socket if an error occurs during the three-way handshake
         print("Error occurred during handshake:", e)
         server_socket.close()
         sys.exit()
 
+    # Begin receiving the file data
     print("\n\nStarting to receive file data")
 
     last_acknowledged_seq = -1  # Initialize the last acknowledged sequence number to -1
 
     try:
+        # Open the file for writing
         with open(file_path, 'wb') as file:
             while True:
+                # Receive a packet from the client
                 msg, addr = server_socket.recvfrom(BUFFER_SIZE)
+                # Extract the header and data from the packet
                 header_msg = msg[:12]
                 data = msg[12:]
 
+                # Parse the header
                 seq, ack_nr, flags, win = parse_header(header_msg)
                 syn, ack, fin = parse_flags(flags)
 
+                # Check if the sequence number matches the expected sequence number
                 if seq == expected_seq:
+                    # Write the data to the file
                     file.write(data)
 
+                    # Update the last acknowledged sequence number
                     last_acknowledged_seq = seq  # Update the last acknowledged sequence number
 
+                    # Set the acknowledgement number to the received sequence number
                     ack_nr = seq
-                    if fin:
-                        flags = 6
-                        fin_ack_packet = create_packet(seq, ack_nr, flags, window, b'')
 
+                    # Check if the packet contains the FIN flag
+                    if fin:
+                        # Set the flags to indicate the FIN and ACK flags are set
+                        flags = 6
+                        # Create the FIN/ACK packet and send it to the client
+                        fin_ack_packet = create_packet(seq, ack_nr, flags, window, b'')
                         server_socket.sendto(fin_ack_packet, addr)
+                        # End the loop
                         break
 
                     else:
+                        # Set the flags to indicate that only the ACK flag is set
                         flags = 4
+                        # Create the ACK packet and send it to the client
                         ack_packet = create_packet(seq, ack_nr, flags, window, b'')
                         server_socket.sendto(ack_packet, addr)
+                        # Update the expected sequence number
                         expected_seq += 1
 
-
+                # If the sequence number is less than the expected sequence number, ignore the packet
                 elif seq < expected_seq:
 
                     # Received a duplicate packet, ignore it
-
                     pass
 
+                # If the sequence number is greater than the expected sequence number, resend the last acknowledged ACK packet
                 else:
-
                     # Received an out-of-order packet, resend the last acknowledged ACK packet
-
+                    # Set the flags to indicate that only the ACK flag is set
                     flags = 4
-
+                    # Create the ACK packet using the last acknowledged sequence number and send it to the client
                     ack_packet = create_packet(last_acknowledged_seq, ack_nr, flags, window, b'')
-
                     server_socket.sendto(ack_packet, addr)
 
-
     except OSError as e:
+        # Handle errors that occurred during file transfer
         print("Error occurred during file transfer", e)
         sys.exit()
 

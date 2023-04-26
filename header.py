@@ -1,5 +1,6 @@
 from struct import  *
 
+# Define the header format
 header_format = '!IIHH'
 def create_packet(seq, ack, flags, win, data):
     header = pack(header_format, seq, ack, flags, win)
