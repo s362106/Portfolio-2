@@ -10,6 +10,7 @@ HEADER_SIZE = 12
 
 # Define the simplified TCP header structure
 
+drtp = DRTP()
 
 def check_ip(address):
     try:
@@ -31,7 +32,7 @@ def run_server(ip, port):
         print("Failed to bind. Error:", e)
         sys.exit()
 
-    handshake_complete = handle_handshake(server_socket)
+    handshake_complete = drtp.handle_handshake(server_socket)
     if handshake_complete:
         print("Handshake success")
 
@@ -45,13 +46,14 @@ def run_client(server_ip, server_port):
     try:
         sender_socket = socket(AF_INET, SOCK_DGRAM)
 
-        handshake_complete = start_handshake(sender_socket, server_ip, server_port)
+
+        handshake_complete = drtp.start_handshake(sender_socket, server_ip, server_port)
         if handshake_complete:
             #send_packet(sender_socket, (server_ip, server_port), file_path)
             print("Handshake complete")
             with open(file_path, 'rb') as file:
                 data = file.read(1460)
-                packet = create_packet()
+                packet = drtp.create_packet()
         else:
             print("Handshake not complete")
             sys.exit()
