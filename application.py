@@ -10,13 +10,15 @@ HEADER_SIZE = 12
 
 # Define the simplified TCP header structure
 
-
-def check_ip(address):
+def check_ip_address(ip_address):
     try:
-        ipaddress.ip_address(address)
-
-    except ValueError:
-        print(f"The IP address {address} is not valid")
+        # convert argument to an IPv4 address 
+        ipaddress.ip_address(ip_address)
+    except:
+        # raise error if not a valid dotted decimal notation
+        raise argparse.ArgumentTypeError('IP address must be in format e.g. 10.0.0.2')
+    # return dotted decimal notation 
+    return ip_address
 
 
 def run_server(ip, port):
@@ -290,16 +292,14 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', type=int, default=12000, help='Choose the port number')
     parser.add_argument('-f', '--file_name', type=str, help='File name to store the data in')
     parser.add_argument('-r', '--reliability', type=str, help='Choose reliability of the data transfer')
-    parser.add_argument('-b', '--bind', type=str, default='127.0.0.1', help='Choose IP address')
+    parser.add_argument('-b', '--bind', type=check_ip_address, default='127.0.0.1', help='Choose IP address')
 
     parser.add_argument('-c', '--client', action='store_true', help='Run in client mode')
 
     args = parser.parse_args()
 
     if args.server:
-        check_ip(args.bind)
         run_server(args.bind, args.port)
 
     elif args.client:
-        check_ip(args.bind)
         run_client(args.bind, args.port)
