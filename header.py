@@ -110,17 +110,18 @@ class DRTP:
 
     def send(self, data):
         packet = self.create_packet(self.seq_num, 0, 0, self.window_size, data)
+        print("Sent packet with seq_num", self.seq_num)
 
         self.sock.sendto(packet, (self.dst_ip, self.dst_port))
         #return self.seq_num
 
 
-    def send_and_wait(self, data):
-        seq_num = self.send(data)
+    def stop_and_wait(self, data):
+        self.send(data)
 
         received_ack = False
         while not received_ack:
-            self.sock.settimeout(5)
+            self.sock.settimeout(0.5)
             try:
                 ack_msg, addr = self.sock.recvfrom(1472)
                 header_from_msg = ack_msg[:12]
@@ -132,9 +133,13 @@ class DRTP:
                     self.seq_num += 1
                     received_ack = True
 
+                elif ack and ack_num == self.seq_num:
+                    print("Received duplicate ACK msg with ack_num", ack_num)
+                    self.send(data)
+
             except timeout:
-                print(f"Timeout occurred. Resending")
-                continue
+                print(f"Timeout occurred. Resending packet with seq_num", self.seq_num)
+                self.send(data)
 
 
     def receive(self):
@@ -150,13 +155,13 @@ class DRTP:
                 flags = 4
                 self.ack_num = seq_num + 1
 
-                ack_msg = self.create_packet(0, seq_num + 1, flags, win, b'')
+                ack_msg = self.create_packet(0, self.ack_num, flags, win, b'')
                 self.sock.sendto(ack_msg, addr)
                 print("Sent ACK msg with ack_num", self.ack_num)
                 return app_data
 
             else:
-                ack_msg = self.create_packet(0, seq_num + 1, flags, win, b'')
+                ack_msg = self.create_packet(0, self.ack_num, flags, win, b'')
                 self.sock.sendto(ack_msg, addr)
                 print("Resent ACK msg with ack_num", self.ack_num)
 
