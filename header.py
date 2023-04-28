@@ -38,85 +38,110 @@ class DRTP:
 
         return syn, ack, fin
 
-    def initiate_handshake(self, sock, dest_addr, dest_port):
+    def initiate_handshake(self):
         # Step 1: Send SYN packet
         seq_num = 1
-        ack_num = 0
-        flags = 8
-        window_size = 0
-        syn_packet = self.create_packet(seq_num, ack_num, flags, window_size, b'')
-        sock.sendto(syn_packet, (dest_addr, dest_port))
+        syn_packet = self.create_packet(seq_num, 0, 8, 0, b'')
+        self.sock.sendto(syn_packet, (self.dst_ip, self.dst_port))
         print("Sent SYN msg")
 
         # Step 2: Wait for SYN-ACK packet
         # sock.settimeout(0.5)
         # expected_ack = 1
+        expected_ack = seq_num + 1
         try:
             while True:
-                data, addr = sock.recvfrom(1472)
+                data, addr = self.sock.recvfrom(1472)
                 header = data[:12]
-                seq, ack_nr, flags, win = self.parse_header(header)
+                seq_num, ack_num, flags, win = self.parse_header(header)
                 syn, ack, fin = self.parse_flags(flags)
-                if syn and ack:
+                if syn and ack and ack_num == expected_ack:
                     print("Received SYN_ACK msg")
-                    print(f"SYN_ACK_NRs: seq={seq}, ack_nr={ack_nr}, flags={flags}, win={win}")
+                    print(f"SYN_ACK_NRs: seq={seq_num}, ack_nr={ack_num}, flags={flags}, win={win}")
                     # SYN-ACK packet received, send ACK packet
                     seq_num += 1
                     ack_num = self.parse_header(header)[0]
                     flags = 4
                     ack_packet = self.create_packet(seq_num, ack_num, flags, 0, b'')
-                    sock.sendto(ack_packet, addr)
+                    self.sock.sendto(ack_packet, addr)
                     print("Sent ACK msg")
                     self.handshake_complete = True
                     # expected_ack += 1
-                    return True
-        except socket.timeout:
-            # Timeout waiting for SYN-ACK, retry handshake
-            sock.settimeout(None)
-            return self.initiate_handshake(sock, dest_addr, dest_port)
 
-    def handle_handshake(self, sock):
+        except timeout:
+            # Timeout waiting for SYN-ACK, retry handshake
+            self.sock.settimeout(0.5)
+            return None
+
+    def handle_handshake(self):
         # Step 1: Wait for SYN packet
-        seq_num = -1
         while True:
-            data, addr = sock.recvfrom(1472)
+            data, addr = self.sock.recvfrom(1472)
             header = data[:12]
-            seq, ack_nr, flags, win = self.parse_header(header)
+            seq_num, ack_num, flags, win = self.parse_header(header)
             syn, ack, fin = self.parse_flags(flags)
             if syn and not ack:
                 print("Received SYN msg")
-                print(f"SYN_NRs: seq={seq}, ack_nr={ack_nr}, flags={flags}, win={win}")
+                print(f"SYN_NRs: seq={seq_num}, ack_nr={ack_num}, flags={flags}, win={win}")
                 # SYN packet received, send SYN-ACK packet
-                seq_num += 1
-                ack_num = self.parse_header(header)[0]
                 flags = 12
                 win = 64
 
-                syn_ack_packet = self.create_packet(seq_num, ack_num, flags, win, b'')
-                sock.sendto(syn_ack_packet, addr)
+                syn_ack_packet = self.create_packet(0, seq_num + 1, flags, win, b'')
+                self.sock.sendto(syn_ack_packet, addr)
                 print("Sent SYN_ACK msg")
 
             elif ack and not syn:
                 print("Received final ACK msg")
-                print(f"ACK_NRs: seq={seq}, ack_nr={ack_nr}, flags={flags}, win={win}")
-                ack_num = seq
-                seq_num += 1
-                flags = 4
-                win = 64
-                data = b''
-                ack_packet = self.create_packet(seq_num, ack_num, flags, win, data)
-                sock.sendto(ack_packet, addr)
+                print(f"ACK_NRs: seq={seq_num}, ack_nr={ack_num}, flags={flags}, win={win}")
                 self.handshake_complete = True
 
     def send(self, data):
+        if not self.handshake_complete:
+            return
         packet = self.create_packet(self.seq_num, 0, 0, self.window_size, data)
-        print("Sent packet with seq_num", self.seq_num)
+        #print("Sent packet with seq_num", self.seq_num)
 
         self.sock.sendto(packet, (self.dst_ip, self.dst_port))
         #return self.seq_num
 
 
     def stop_and_wait(self, data):
+        if not self.handshake_complete:
+            flags = 8
+            syn_packet = self.create_packet(1, 0, flags, 0, b'')
+            self.sock.sendto(syn_packet, (self.dst_ip, self.dst_port))
+            print("Sent SYN packet with seq_num", self.seq_num)
+
+            received_synack = False
+            while not received_synack:
+                self.sock.settimeout(0.5)
+                try:
+                    synack_msg, addr = self.sock.recvfrom(1472)
+                    header_from_msg = synack_msg[:12]
+                    seq_num, ack_num, flags, win = self.parse_header(header_from_msg)
+                    syn, ack, fin = self.parse_flags(flags)
+
+                    if syn and ack and not fin:
+                        print("Received SYN-ACK msg with ak_num", ack_num)
+                        flags = 4
+                        ack_packet = self.create_packet(0, 1, flags, 0, b'')
+                        self.sock.sendto(ack_packet, addr)
+                        print("Sent final ACK packet with ack_num", 1)
+                        self.handshake_complete = True
+                        received_synack = True
+
+                    elif syn and ack and not fin:
+                        print("Resending SYN msg with seq_num")
+                        syn_packet = self.create_packet(seq_num+1, 0, flags, 0, b'')
+                        self.sock.sendto(syn_packet, (self.dst_ip, self.dst_port))
+
+
+                except timeout:
+                    print(f"Timeout occurred. Resending SYN packet with seq_num {self.seq_num}")
+                    syn_packet = self.create_packet(self.seq_num, 0, flags, 0, b'')
+                    self.sock.sendto(syn_packet, (self.dst_ip, self.dst_port))
+
         self.send(data)
 
         received_ack = False
@@ -143,6 +168,30 @@ class DRTP:
 
 
     def receive(self):
+
+        if not self.handshake_complete:
+            received_final_ack = False
+            while not received_final_ack:
+
+                try:
+                    syn_packet, addr = self.sock.recvfrom(1472)
+                    header = syn_packet[:12]
+                    syn, ack, fin = self.parse_flags(self.parse_header(header)[2])
+
+                    if syn and not ack and not fin:
+                        print("Received SYN msg")
+                        synack_msg = self.create_packet(0, 1, 12, 64, b'')
+                        self.sock.sendto(synack_msg, addr)
+
+                    elif not syn and ack and not fin:
+                        print("Received final ACK msg")
+                        self.handshake_complete = True
+                        received_final_ack = True
+
+                except Exception as e:
+                    print("Error:", e)
+                    sys.exit()
+
         while True:
             msg, addr = self.sock.recvfrom(1472)
 
@@ -157,11 +206,6 @@ class DRTP:
 
                 ack_msg = self.create_packet(0, self.ack_num, flags, win, b'')
                 self.sock.sendto(ack_msg, addr)
-                print("Sent ACK msg with ack_num", self.ack_num)
+                #print("Sent ACK msg with ack_num", self.ack_num)
                 return app_data
-
-            else:
-                ack_msg = self.create_packet(0, self.ack_num, flags, win, b'')
-                self.sock.sendto(ack_msg, addr)
-                print("Resent ACK msg with ack_num", self.ack_num)
 

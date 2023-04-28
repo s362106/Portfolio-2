@@ -18,13 +18,13 @@ def check_ip(address):
         print(f"The IP address {address} is not valid")
 
 
-def run_server(ip, port):
+def run_server(ip, port, reliable_mode):
     file_path = 'received_file.png'
     try:
         server_socket = socket(AF_INET, SOCK_DGRAM)
         server_socket.bind((ip, port))
         print(f"Server listening on {ip}:{port}")
-        drtp = DRTP(server_socket, ip, port, 'Ingenting')
+        drtp = DRTP(server_socket, ip, port, reliable_mode)
 
         with open(file_path, 'wb') as file:
             while True:
@@ -32,9 +32,6 @@ def run_server(ip, port):
                 if not data:
                     break
                 file.write(data)
-        '''while True:
-            data = drtp.receive()
-            print(data)'''
 
     except OSError as e:
         print("Failed to bind. Error:", e)
@@ -42,25 +39,21 @@ def run_server(ip, port):
 
 
 
-def run_client(server_ip, server_port):
-    file_path = '/Users/fahmimohammed/Screenshot 2023-04-24 at 22.58.35.png'
+def run_client(server_ip, server_port, reliable_mode):
+    file_path = './Screenshot 2023-04-28 at 19.57.31.png'
 
     try:
         sender_sock = socket(AF_INET,SOCK_DGRAM)
 
-        drtp = DRTP(sender_sock, server_ip, server_port, 'Ingenting')
+        drtp = DRTP(sender_sock, server_ip, server_port, reliable_mode)
         #send_packet(sender_socket, (server_ip, server_port), file_path)
         print("Handshake complete")
         with open(file_path, 'rb') as file:
             data = file.read(1460)
             while data:
 
-                drtp.send_and_wait(data)
+                drtp.stop_and_wait(data)
                 data = file.read(1460)
-
-        '''for i in range(15):
-            data = f"Her data nr. {i}"
-            drtp.send_and_wait(data.encode())'''
 
 
     except IOError:
@@ -77,7 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--server', action='store_true', help='Run in server mode')
     parser.add_argument('-p', '--port', type=int, default=12000, help='Choose the port number')
     parser.add_argument('-f', '--file_name', type=str, help='File name to store the data in')
-    parser.add_argument('-r', '--reliability', type=str, help='Choose reliability of the data transfer')
+    parser.add_argument('-r', '--reliability', type=str, default='snw', help='Choose reliability of the data transfer')
     parser.add_argument('-i', '--ip_address', type=str, default='127.0.0.1', help='Choose IP address')
 
     parser.add_argument('-c', '--client', action='store_true', help='Run in client mode')
@@ -86,8 +79,8 @@ if __name__ == '__main__':
 
     if args.server:
         check_ip(args.ip_address)
-        run_server(args.ip_address, args.port)
+        run_server(args.ip_address, args.port, args.reliability)
 
     elif args.client:
         check_ip(args.ip_address)
-        run_client(args.ip_address, args.port)
+        run_client(args.ip_address, args.port, args.reliability)
