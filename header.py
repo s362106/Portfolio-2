@@ -95,7 +95,7 @@ def stop_and_wait(sock, addr, data):
                 self_seq_num += 1
                 received_ack = True
 
-            elif ack and ack_num == self_seq_num:
+            elif ack and ack_num < self_seq_num:
                 print("Received duplicate ACK msg with ack_num", ack_num)
                 send(sock, data, self_seq_num, addr)
 
@@ -135,9 +135,10 @@ def receive(sock):
 
         header_from_msg = msg[:12]
         seq_num, ack_num, flags, win = parse_header(header_from_msg)
-        print(f"Received packet with seq_num", seq_num)
+        syn, ack, fin = parse_flags(flags)
 
-        if seq_num == self_ack_num:
+        if not fin and not syn and not ack and seq_num == self_ack_num:
+            print(f"Received packet with seq_num", seq_num)
             app_data = msg[12:]
             flags = 4
             ack_msg = create_packet(0, self_ack_num, flags, win, b'')
@@ -147,6 +148,44 @@ def receive(sock):
             self_ack_num = seq_num + 1
 
             return app_data
+
+        if fin and not ack and not syn and seq_num == self_ack_num:
+            print("FIN msg received with seq_num", seq_num)
+            flags = 4
+            fin_ack_msg = create_packet(0, self_ack_num, flags, win, b'')
+            sock.sendto(fin_ack_msg, addr)
+
+            self_ack_num = seq_num + 1
+            sock.close()
+            return
+
+
+def close_conn(sock, addr):
+    global self_seq_num
+
+    flags = 2
+    fin_msg = create_packet(self_seq_num, 0, flags, 0, b'')
+    sock.sendto(fin_msg, addr)
+
+    fin_ack_received = False
+    while not fin_ack_received:
+        fin_ack_msg, addr = sock.recvfrom(1472)
+        header_from_msg = fin_ack_msg[:12]
+        seq_num, ack_num, flags, win = parse_header(header_from_msg)
+        syn, ack, fin = parse_flags(flags)
+
+        if ack and ack_num == self_seq_num:
+            print("Received ACK msg for FIN msg with ack_num", ack_num)
+            self_seq_num += 1
+            sock.close()
+            fin_ack_received = True
+            return
+
+        elif not ack and ack_num < self_seq_num:
+            print("Received duplicate ACK msg with ack_num", ack_num)
+            flags = 2
+            fin_msg = create_packet(self_seq_num, 0, flags, 0, b'')
+            sock.sendto(fin_msg, addr)
 
 
 '''

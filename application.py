@@ -55,6 +55,8 @@ def run_client(server_ip, server_port, reliable_mode):
                 addr = (server_ip, server_port)
                 stop_and_wait(sender_sock, addr, data)
                 data = file.read(1460)
+                if not data:
+                    close_conn(sender_sock, addr)
 
 
     except IOError:
