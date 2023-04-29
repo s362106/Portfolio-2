@@ -24,11 +24,12 @@ def run_server(ip, port, reliable_mode):
         server_socket = socket(AF_INET, SOCK_DGRAM)
         server_socket.bind((ip, port))
         print(f"Server listening on {ip}:{port}")
-        drtp = DRTP(server_socket, ip, port, reliable_mode)
+        #drtp = DRTP(server_socket, ip, port, reliable_mode)
 
         with open(file_path, 'wb') as file:
             while True:
-                data = drtp.receive()
+
+                data = receive(server_socket)
                 if not data:
                     break
                 file.write(data)
@@ -45,14 +46,14 @@ def run_client(server_ip, server_port, reliable_mode):
     try:
         sender_sock = socket(AF_INET,SOCK_DGRAM)
 
-        drtp = DRTP(sender_sock, server_ip, server_port, reliable_mode)
+        #drtp = DRTP(sender_sock, server_ip, server_port, reliable_mode)
         #send_packet(sender_socket, (server_ip, server_port), file_path)
         print("Handshake complete")
         with open(file_path, 'rb') as file:
             data = file.read(1460)
             while data:
-
-                drtp.stop_and_wait(data)
+                addr = (server_ip, server_port)
+                stop_and_wait(sender_sock, addr, data)
                 data = file.read(1460)
 
 

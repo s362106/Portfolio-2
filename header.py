@@ -9,8 +9,147 @@ TIMEOUT = 0.5
 # Header format
 header_format = '!IIHH'
 
+handshake_complete = False
+self_seq_num = 1
+self_ack_num = 1
 
 
+def create_packet(seq_num, ack_num, flags, window_size, data):
+    header = pack(header_format, seq_num, ack_num, flags, window_size)
+    packet = header + data
+    return packet
+
+
+def parse_header(header):
+    header_from_msg = unpack(header_format, header)
+    return header_from_msg
+
+
+def parse_flags(flags):
+    syn = (flags >> 3) & 1
+    ack = (flags >> 2) & 1
+    fin = (flags >> 1) & 1
+
+    return syn, ack, fin
+
+
+def send(sock, data, seq_num, addr):
+    packet = create_packet(seq_num, 0, 0, 0, data)
+    #print("Sent packet with seq_num", seq_num)
+
+    sock.sendto(packet, addr)
+    #return seq_num
+
+
+def stop_and_wait(sock, addr, data):
+    global handshake_complete
+    if not handshake_complete:
+        flags = 8
+        syn_packet = create_packet(0, 0, flags, 0, b'')
+        sock.sendto(syn_packet, addr)
+        print("Sent SYN packet with seq_num", 0)
+
+        received_synack = False
+        while not received_synack:
+            sock.settimeout(0.5)
+            try:
+                synack_msg, addr = sock.recvfrom(1472)
+                header_from_msg = synack_msg[:12]
+                seq_num, ack_num, flags, win = parse_header(header_from_msg)
+                syn, ack, fin = parse_flags(flags)
+
+                if syn and ack and not fin:
+                    print("Received SYN-ACK msg with ak_num", ack_num)
+                    flags = 4
+                    ack_packet = create_packet(0, 0, flags, 0, b'')
+                    sock.sendto(ack_packet, addr)
+                    print("Sent final ACK packet with ack_num", 0)
+                    handshake_complete = True
+                    received_synack = True
+
+                elif syn and ack and not fin:
+                    print("Resending SYN msg with seq_num")
+                    syn_packet = create_packet(seq_num + 1, 0, flags, 0, b'')
+                    sock.sendto(syn_packet, addr)
+
+
+            except timeout:
+                print(f"Timeout occurred. Resending SYN packet with seq_num 0")
+                syn_packet = create_packet(0, 0, flags, 0, b'')
+                sock.sendto(syn_packet, addr)
+
+    global self_seq_num
+    send(sock, data, self_seq_num, addr)
+
+    received_ack = False
+    while not received_ack:
+        sock.settimeout(0.5)
+        try:
+            ack_msg, addr = sock.recvfrom(1472)
+            header_from_msg = ack_msg[:12]
+            seq_num, ack_num, flags, win = parse_header(header_from_msg)
+            syn, ack, fin = parse_flags(flags)
+
+            if ack and ack_num == self_seq_num:
+                print("Received ACK msg with ack_num", ack_num)
+                self_seq_num += 1
+                received_ack = True
+
+            elif ack and ack_num == self_seq_num:
+                print("Received duplicate ACK msg with ack_num", ack_num)
+                send(sock, data, self_seq_num, addr)
+
+        except timeout:
+            print(f"Timeout occurred. Resending packet with seq_num", self_seq_num)
+            send(sock, data, self_seq_num, addr)
+
+
+def receive(sock):
+    global handshake_complete
+    if not handshake_complete:
+        received_final_ack = False
+        while not received_final_ack:
+
+            try:
+                syn_packet, addr = sock.recvfrom(1472)
+                header = syn_packet[:12]
+                syn, ack, fin = parse_flags(parse_header(header)[2])
+
+                if syn and not ack and not fin:
+                    print("Received SYN msg")
+                    synack_msg = create_packet(0, 0, 12, 64, b'')
+                    sock.sendto(synack_msg, addr)
+
+                elif not syn and ack and not fin:
+                    print("Received final ACK msg")
+                    handshake_complete = True
+                    received_final_ack = True
+
+            except Exception as e:
+                print("Error:", e)
+                sys.exit()
+
+    global self_ack_num
+    while True:
+        msg, addr = sock.recvfrom(1472)
+
+        header_from_msg = msg[:12]
+        seq_num, ack_num, flags, win = parse_header(header_from_msg)
+        print(f"Received packet with seq_num", seq_num)
+
+        if seq_num == self_ack_num:
+            app_data = msg[12:]
+            flags = 4
+            ack_msg = create_packet(0, self_ack_num, flags, win, b'')
+            sock.sendto(ack_msg, addr)
+            #print("Sent ACK msg with ack_num", self_ack_num)
+
+            self_ack_num = seq_num + 1
+
+            return app_data
+
+
+'''
 class DRTP:
     def __init__(self, sock,dst_ip, dst_port, reliable_method):
         self.seq_num = 1
@@ -208,4 +347,5 @@ class DRTP:
                 self.sock.sendto(ack_msg, addr)
                 #print("Sent ACK msg with ack_num", self.ack_num)
                 return app_data
+                '''
 
