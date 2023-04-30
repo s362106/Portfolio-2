@@ -47,6 +47,39 @@ def run_server(ip, port, reliable_mode, test):
         sys.exit()
 
 
+def test_skip_ack(ip, port, reliable_mode):
+    file_path = 'received_file.png'
+    try:
+        server_socket = socket(AF_INET, SOCK_DGRAM)
+        server_socket.bind((ip, port))
+        print(f"Server listening on {ip}:{port}")
+        # drtp = DRTP(server_socket, ip, port, reliable_mode)
+        first = 1
+        with open(file_path, 'wb') as file:
+            start_time = time.time()
+
+            while True:
+                if reliable_mode == "stop_and_wait":
+                    if first == 1:
+                        data = receive(server_socket, test=True)
+                        first += 1
+                    else:
+                        data = receive(server_socket, test)
+                    if not data:
+                        break
+                    file.write(data)
+                    test = False
+
+                else:
+                    print("Reliable method chosen is not yet working")
+                    sys.exit()
+            elapsed_time = time.time() - start_time
+            print("Tranfser time:", elapsed_time)
+    except OSError as e:
+        print("Failed to bind. Error:", e)
+        sys.exit()
+
+
 
 def run_client(server_ip, server_port, reliable_mode, test):
     file_path = './Screenshot 2023-04-28 at 19.57.31.png'
@@ -56,6 +89,30 @@ def run_client(server_ip, server_port, reliable_mode, test):
 
         #drtp = DRTP(sender_sock, server_ip, server_port, reliable_mode)
         #send_packet(sender_socket, (server_ip, server_port), file_path)
+        print("Handshake complete")
+        with open(file_path, 'rb') as file:
+            data = file.read(1460)
+            while data:
+                addr = (server_ip, server_port)
+                stop_and_wait(sender_sock, addr, data)
+                data = file.read(1460)
+                if not data:
+                    close_conn(sender_sock, addr)
+
+
+    except IOError:
+        print("Error opening file")
+        sys.exit()
+
+
+def ski_seq_num(server_ip, server_port, reliable_method):
+    file_path = './Screenshot 2023-04-28 at 19.57.31.png'
+
+    try:
+        sender_sock = socket(AF_INET, SOCK_DGRAM)
+
+        # drtp = DRTP(sender_sock, server_ip, server_port, reliable_mode)
+        # send_packet(sender_socket, (server_ip, server_port), file_path)
         print("Handshake complete")
         with open(file_path, 'rb') as file:
             data = file.read(1460)
