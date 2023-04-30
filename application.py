@@ -284,6 +284,71 @@ def run_client(server_ip, server_port):
     client_sock.close()
 
 
+# Attempt at go-back-n reliability function
+def GBN(file, client_sock, server_ip, server_port):
+    # Initialize variables for window
+    WINDOW_SIZE = 5
+    base = 1
+    next_packet = 0
+    packets = []
+
+    # Initialize variables for the data packet
+    seq = 0
+    ack_nr = 0
+    win = 0
+    flags = 0
+    while True:
+        # Read the file in chunks of 1460 bytes
+        data = file.read(1460)
+        # If there is no more data to send, set flags to 2 (FIN)
+        if not data:
+            break  # Break out of loop 
+        packet = create_packet(seq, ack_nr, flags, win, data)
+        packets.append(packet)
+        seq += 1
+
+    received_acks = []
+    while base <= len(packets):
+        client_sock.settimeout(0.5)
+        # Wait for an ACK packet to arrive
+        try:
+            # Checks if it is the last packet
+            if base == len(packets):
+                flags = 2
+                data = b''
+                # Create FIN packet and send to server
+                fin_packet = create_packet(seq, ack_nr, flags, win, data)
+                client_sock.sendto(fin_packet, (server_ip, server_port))
+                break
+
+            # Sends all the packets in the given window size (5)
+            while next_packet < base + WINDOW_SIZE:
+                client_sock.sendto(packets[next_packet], (server_ip, server_port))
+                next_packet += 1
+            
+            ack_packet, addr = client_sock.recvfrom(1472)
+            # Parse the header of the ACK packet 
+            seq, ack_nr, flags, win = parse_header(ack_packet)
+            # Parse the flags to determine if the packet is a SYN, ACK, or FIN packet
+            syn, ack, fin = parse_flags(flags)
+
+            # If ACK flag is set and acknowledgement number is expected, update base and therefore the window
+            if ack and ack_nr == base:
+                print(f"Received ACK for packet", ack_nr)
+                base = ack_nr + 1
+            # If ACK number is less than expected, print message indicating duplicate ACK received
+            elif ack_nr < base:
+                print(f"Received a duplicate ACK for packet {ack_nr}")
+                next_packet = base  # Resets to last in order acked packet
+                # If ACK number has not already been received, add it to list of received ACKs and break out of loop
+                if ack_nr not in received_acks:
+                    received_acks.append(ack_nr)
+
+        except timeout:  # Resend all packets that have not been acked
+            # If timeout occurs, resets to last in order acked packet
+            next_packet = base        
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="A custom reliable data transfer protocol", epilog="End of help")
