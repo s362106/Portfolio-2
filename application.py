@@ -105,7 +105,7 @@ def run_client(server_ip, server_port, reliable_mode, test):
         sys.exit()
 
 
-def ski_seq_num(server_ip, server_port, reliable_method):
+def skip_seq_num(server_ip, server_port, reliable_method):
     file_path = './Screenshot 2023-04-28 at 19.57.31.png'
 
     try:
@@ -118,7 +118,7 @@ def ski_seq_num(server_ip, server_port, reliable_method):
             data = file.read(1460)
             while data:
                 addr = (server_ip, server_port)
-                stop_and_wait(sender_sock, addr, data)
+                stop_and_wait(sender_sock, addr, data, test=True)
                 data = file.read(1460)
                 if not data:
                     close_conn(sender_sock, addr)
@@ -137,16 +137,23 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--file_name', type=str, help='File name to store the data in')
     parser.add_argument('-r', '--reliability', type=str, default='stop_and_wait', help='Choose reliability of the data transfer')
     parser.add_argument('-i', '--ip_address', type=str, default='127.0.0.1', help='Choose IP address')
-    parser.add_argument('-t', '--test', type=str, help='Choose which artificial test case')
+    parser.add_argument('-t', '--test', type=str, default='', help='Choose which artificial test case')
 
     parser.add_argument('-c', '--client', action='store_true', help='Run in client mode')
 
     args = parser.parse_args()
 
     if args.server:
-        check_ip(args.ip_address)
-        run_server(args.ip_address, args.port, args.reliability, args.test)
+        if args.test == 'skip':
+            check_ip(args.ip_address)
+            test_skip_ack(args.ip_address, args.port, args.reliability)
+
+        elif args.test == '':
+            run_server(args.ip_address, args.port, args.reliability, args.test)
 
     elif args.client:
-        check_ip(args.ip_address)
-        run_client(args.ip_address, args.port, args.reliability, args.test)
+        if args.test == 'skip_seq':
+            skip_seq_num(args.ip_address, args.port, args.reliability)
+        else:
+            check_ip(args.ip_address)
+            run_client(args.ip_address, args.port, args.reliability, args.test)

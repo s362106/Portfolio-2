@@ -10,8 +10,9 @@ TIMEOUT = 0.5
 header_format = '!IIHH'
 
 handshake_complete = False
-sequence_number = 1
+sent_seq_num = 1
 acknowledgment_num = 1
+expected_seq_num = 1
 
 
 def create_packet(seq_num, ack_num, flags, window_size, data):
@@ -60,7 +61,7 @@ def stop_and_wait(sock, addr, data):
     """
 
     # Declare global variables that will be modified within this function
-    global sequence_number
+    global sent_seq_num
     global handshake_complete
 
     # If handshake has not yet been completed, establish connection
@@ -101,7 +102,7 @@ def stop_and_wait(sock, addr, data):
 
     sent = False
     while not sent:
-        send(sock, data, sequence_number, addr)  # Send first data packet with current sequence number
+        send(sock, data, sent_seq_num, addr)  # Send first data packet with current sequence number
 
         # Wait for ACK message from the receiver
         received_ack = False
@@ -115,23 +116,23 @@ def stop_and_wait(sock, addr, data):
                 syn, ack, fin = parse_flags(flags)  # Parse the flags
 
                 # If received ACK message is valid, update global sequence number and set received_ack to True
-                if ack and ack_num == sequence_number:
+                if ack and ack_num == sent_seq_num:
                     print(f"ACK msg: ack_num={ack_num}, flags={flags}")
-                    sequence_number += 1
+                    sent_seq_num += 1
                     received_ack = True
                     sent = True
 
                 # Else if received duplicate ACK message
-                elif ack and ack_num == sequence_number - 1:
+                elif ack and ack_num == sent_seq_num - 1:
                     print("Received duplicate ACK msg with ack_num", ack_num)
-                    send(sock, data, sequence_number - 1, addr)
+                    send(sock, data, sent_seq_num - 1, addr)
 
                 else:
                     sock.settimeout(0.5)
 
             except timeout:
-                print(f"Timeout occurred. Resending packet with seq_num={sequence_number}, flags=0")
-                send(sock, data, sequence_number, addr)
+                print(f"Timeout occurred. Resending packet with seq_num={sent_seq_num}, flags=0")
+                send(sock, data, sent_seq_num, addr)
 
 
 def receive(sock, test):
@@ -159,7 +160,7 @@ def receive(sock, test):
                 print("Error:", e)
                 sys.exit()
 
-    global acknowledgment_num
+    global expected_seq_num
     while True:
         msg, addr = sock.recvfrom(1472)
 
@@ -170,33 +171,31 @@ def receive(sock, test):
         if test:
             time.sleep(1)
 
-        if not fin and not syn and not ack and seq_num == acknowledgment_num:
+        if not fin and not syn and not ack and seq_num == expected_seq_num:
             print(f"Received packet with seq_num", seq_num)
             app_data = msg[12:]
-            send_ack(sock, acknowledgment_num, addr)
+            send_ack(sock, expected_seq_num, addr)
+            expected_seq_num += 1
             #ack_msg = create_packet(0, global_ack_num, flags, win, b'')
 
             #sock.sendto(ack_msg, addr)
-            #print("Sent ACK msg with ack_num", self_ack_num)
-
-            acknowledgment_num = seq_num + 1
+            print("Sent ACK msg with ack_num", expected_seq_num - 1)
 
             return app_data
 
         # Usikker om man skal resende ACK melding til forrige packet hvis man får det igjen
-        '''elif not fin and not syn and not ack and seq_num == global_ack_num - 1:
+        elif not fin and not syn and not ack and seq_num != expected_seq_num:
             print(f"Received duplicate packet with seq_num", seq_num)
 
-            flags = 4
-            send_ack(sock, global_ack_num - 1, addr)
+            send_ack(sock, expected_seq_num - 1, addr)
             #ack_msg = create_packet(0, global_ack_num - 1, flags, win, b'')
 
-            #sock.sendto(ack_msg, addr)'''
+            #sock.sendto(ack_msg, addr)
 
-        if fin and not ack and not syn and seq_num == acknowledgment_num:
+        if fin and not ack and not syn and seq_num == expected_seq_num:
             print("FIN msg received with seq_num", seq_num)
             flags = 4
-            send_ack(sock, acknowledgment_num, addr)
+            send_ack(sock, expected_seq_num, addr)
             #fin_ack_msg = create_packet(0, global_ack_num, flags, win, b'')
             #sock.sendto(fin_ack_msg, addr)
 
@@ -206,10 +205,10 @@ def receive(sock, test):
 
 
 def close_conn(sock, addr):
-    global sequence_number
+    global sent_seq_num
 
     flags = 2
-    fin_msg = create_packet(sequence_number, 0, flags, 0, b'')
+    fin_msg = create_packet(sent_seq_num, 0, flags, 0, b'')
     sock.sendto(fin_msg, addr)
 
     fin_ack_received = False
@@ -221,31 +220,31 @@ def close_conn(sock, addr):
             seq_num, ack_num, flags, win = parse_header(header_from_msg)
             syn, ack, fin = parse_flags(flags)
 
-            if ack and ack_num == sequence_number:
+            if ack and ack_num == sent_seq_num:
                 print("Received ACK msg for FIN msg with ack_num", ack_num)
-                sequence_number += 1
+                sent_seq_num += 1
                 sock.close()
                 fin_ack_received = True
                 return
 
-            elif not ack and ack_num < sequence_number:
+            elif not ack and ack_num < sent_seq_num:
                 print("Received duplicate ACK msg with ack_num", ack_num)
                 flags = 2
-                fin_msg = create_packet(sequence_number, 0, flags, 0, b'')
+                fin_msg = create_packet(sent_seq_num, 0, flags, 0, b'')
                 sock.sendto(fin_msg, addr)
         except timeout:
             print(f"Timeout occurred. Resending FIN msg")
             sock.sendto(fin_msg, addr)
 
 def go_back_n(sock, addr, data):
-    global  sequence_number
+    global sent_seq_num
     window_size = 5
     base = 1
 
-    while base < sequence_number:
-        for i in range(base, min(base + window_size, sequence_number + 1)):
-            send(sock, data, sequence_number, addr)
-            sequence_number += 1
+    while base < sent_seq_num:
+        for i in range(base, min(base + window_size, sent_seq_num + 1)):
+            send(sock, data, sent_seq_num, addr)
+            sent_seq_num += 1
 
         try:
             while True:
@@ -257,10 +256,10 @@ def go_back_n(sock, addr, data):
 
                 if ack_num >= base:
                     base = ack_num + 1
-                    window_size = min(window_size + (base - sequence_number))
+                    window_size = min(window_size + (base - sent_seq_num))
 
         except timeout:
-            print("Timeout - retrasnmitting packet with seq_num", sequence_number)
+            print("Timeout - retrasnmitting packet with seq_num", sent_seq_num)
 
 
 def receive_gbn(sock):
