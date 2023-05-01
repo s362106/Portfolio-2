@@ -3,9 +3,7 @@ from struct import *
 from socket import *
 import sys
 
-TIMEOUT = 0.5
 
-# Header format
 header_format = '!IIHH'
 
 handshake_complete = False
