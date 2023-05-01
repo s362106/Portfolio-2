@@ -154,52 +154,44 @@ def stop_and_wait(sock, addr, data):
 
 
 # Uses old method
-def receive(sock, test, filename):
+def receive(sock, test):
     handle_handshake(sock)
+    expected_seq_num = 1
+    received_data = b''
 
-    global expected_seq_num
-    with open(filename, 'wb') as f:
-        while True:
-            msg, addr = sock.recvfrom(1472)
+    while True:
+        msg, addr = sock.recvfrom(1472)
 
-            header_from_msg = msg[:12]
-            seq_num, ack_num, flags, win = parse_header(header_from_msg)
-            syn, ack, fin = parse_flags(flags)
+        header_from_msg = msg[:12]
+        seq_num, ack_num, flags, win = parse_header(header_from_msg)
+        syn, ack, fin = parse_flags(flags)
 
-            if test:
-                time.sleep(1)
+        if test:
+            time.sleep(1)
 
-            if not fin and not syn and not ack and seq_num == expected_seq_num:
-                print(f"Received packet with seq_num", seq_num)
-                app_data = msg[12:]
-                send_ack(sock, expected_seq_num, addr)
-                print("Sent ACK msg with ack_num", expected_seq_num)
-                expected_seq_num += 1
-                #ack_msg = create_packet(0, global_ack_num, flags, win, b'')
+        if not fin and not syn and not ack and seq_num == expected_seq_num:
+            print(f"Received packet with seq_num", seq_num)
+            app_data = msg[12:]
+            send_ack(sock, expected_seq_num, addr)
+            print("Sent ACK msg with ack_num", expected_seq_num)
+            expected_seq_num += 1
+            received_data += app_data
 
-                #sock.sendto(ack_msg, addr)
+        elif not fin and not syn and not ack and seq_num != expected_seq_num:
+            if seq_num == expected_seq_num - 1:
+                print(f"Received duplicate packet with seq_num", seq_num)
+                send_ack(sock, expected_seq_num - 1, addr)
 
+            else:
+                print("Received out-of-order packet. Ignoring")
 
-                f.write(app_data)
+        if fin and not ack and not syn and seq_num == expected_seq_num:
+            print("FIN msg received with seq_num", seq_num)
+            flags = 4
+            send_ack(sock, expected_seq_num, addr)
+            sock.close()
+            return received_data
 
-            # Usikker om man skal resende ACK melding til forrige packet hvis man får det igjen
-            elif not fin and not syn and not ack and seq_num != expected_seq_num:
-                if seq_num == expected_seq_num - 1:
-                    print(f"Received duplicate packet with seq_num", seq_num)
-                    send_ack(sock, expected_seq_num - 1, addr)
-
-                else:
-                    print("Received out-of-order packet. Ignoring")
-
-            if fin and not ack and not syn and seq_num == expected_seq_num:
-                print("FIN msg received with seq_num", seq_num)
-                flags = 4
-                send_ack(sock, expected_seq_num, addr)
-                #fin_ack_msg = create_packet(0, global_ack_num, flags, win, b'')
-                #sock.sendto(fin_ack_msg, addr)
-
-                sock.close()
-                return
 
 
 def close_conn(sock, addr, next_seq_num):

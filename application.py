@@ -26,7 +26,10 @@ def run_server_saw(ip, port, reliable_mode, test):
         server_socket.bind((ip, port))
         print(f"Server listening on {ip}:{port}")
 
-        receive(server_socket, False, file_path)
+        received_data = receive(server_socket, False)
+        with open(file_path, 'wb') as file:
+            file.write(received_data)
+
     except OSError as e:
         print("Failed to bind. Error:", e)
         sys.exit()
