@@ -38,7 +38,12 @@ def run_server_gbn(server_ip, server_port):
         server_socket = socket(AF_INET, SOCK_DGRAM)
         server_socket.bind((server_ip, server_port))
         print(f"Server listening on {server_ip}:{server_port}")
-        RECV_GBN(server_socket, file_path)
+
+        received_data = RECV_GBN(server_socket)
+
+        with open(file_path, 'wb') as file:
+            file.write(received_data)
+
     except OSError as e:
         print("Failed to bind. Error:", e)
         sys.exit()
@@ -101,7 +106,10 @@ def run_client_saw(server_ip, server_port):
 
         print("Handshake complete")
         addr = (server_ip, server_port)
-        stop_and_wait(sender_sock, addr, file_path)
+        with open(file_path, 'rb') as file:
+            file_data = file.read()
+
+        stop_and_wait(sender_sock, addr, file_data)
 
     except IOError:
         print("Error opening file")

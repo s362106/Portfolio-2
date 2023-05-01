@@ -110,92 +110,52 @@ def handle_handshake(sock):
                 sys.exit()
 
 
-def stop_and_wait(sock, addr, filename):
-    """
-    Implements the Stop_and_Wait protocol for reliable data transfer over UDP
-
-    Arguments:
-        sock (socket): The UDP socket object
-        addr (Tuple): A tuple containing the IP address and port number of the remote host
-        data (bytes): The data to be sent
-
-    Returns:
-        None
-    """
-
-    # Declare global variables that will be modified within this function
-    global sent_seq_num
+def stop_and_wait(sock, addr, data):
 
     # If handshake has not yet been completed, establish connection
     initiate_handshake(sock, addr)
 
-    # Once handshake is complete, send data packets and wait for ACKs
+    sequence_num = 1
+    while True:
+        if not data:
+            close_conn(sock, addr, sequence_num)
+            break
 
-    with open(filename, 'rb') as file:
+        # Send data packet with current sequence number
+        send(sock, data[:1460], sequence_num, addr)
+        data = data[1460:]
 
-        while True:
-            data = file.read(1460)
-            if not data:
-                close_conn(sock, addr)
-                break
-
-            send(sock, data, sent_seq_num, addr)  # Send first data packet with current sequence number
-
-            # Wait for ACK message from the receiver
-            received_ack = False
-            while not received_ack:
-                # Set a timeout og 0.5 seconds for the socket for receiving ACK message
-
-                try:
-                    ack_msg, addr = sock.recvfrom(1472)     # Receive message from destination address
-                    header_from_msg = ack_msg[:12]  # Extract the header from the received message
-                    seq_num, ack_num, flags, win = parse_header(header_from_msg)    # Parse the header fields
-                    syn, ack, fin = parse_flags(flags)  # Parse the flags
-
-                    # If received ACK message is valid, update global sequence number and set received_ack to True
-                    if ack and ack_num == sent_seq_num:
-                        print(f"ACK msg: ack_num={ack_num}, flags={flags}")
-                        sent_seq_num += 1
-                        received_ack = True
-                        sent = True
-
-                    # Else if received duplicate ACK message
-                    elif ack and ack_num == sent_seq_num - 1:
-                        print("Received duplicate ACK msg with ack_num", ack_num)
-                        send(sock, data, sent_seq_num - 1, addr)
-
-                    else:
-                        sock.settimeout(0.5)
-
-                except timeout:
-                    print(f"Timeout occurred. Resending packet with seq_num={sent_seq_num}, flags=0")
-                    send(sock, data, sent_seq_num, addr)
-
-
-def receive(sock, test, filename):
-    global handshake_complete
-    if not handshake_complete:
-        received_final_ack = False
-        while not received_final_ack:
+        # Wait for ACK message from the receiver
+        received_ack = False
+        while not received_ack:
+            # Set a timeout of 0.5 seconds for the socket for receiving ACK message
+            sock.settimeout(0.5)
 
             try:
-                syn_packet, addr = sock.recvfrom(1472)
-                header = syn_packet[:12]
-                syn, ack, fin = parse_flags(parse_header(header)[2])
+                ack_msg, addr = sock.recvfrom(1472)  # Receive message from destination address
+                header_from_msg = ack_msg[:12]  # Extract the header from the received message
+                seq_num, ack_num, flags, win = parse_header(header_from_msg)  # Parse the header fields
+                syn, ack, fin = parse_flags(flags)  # Parse the flags
 
-                if syn and not ack and not fin:
-                    print("Received SYN msg")
-                    syn_ack_msg = create_packet(0, 0, 12, 64, b'')
-                    sock.sendto(syn_ack_msg, addr)
+                # If received ACK message is valid, update global sequence number and set received_ack to True
+                if ack and ack_num == sequence_num:
+                    print(f"ACK msg: ack_num={ack_num}, flags={flags}")
+                    sequence_num += 1
+                    received_ack = True
 
-                elif not syn and ack and not fin:
-                    print("Received final ACK msg")
-                    handshake_complete = True
-                    received_final_ack = True
+                # Else if received duplicate ACK message
+                elif ack and ack_num == sequence_num - 1:
+                    print("Received duplicate ACK msg with ack_num", ack_num)
+                    send(sock, data[:1460], sequence_num - 1, addr)
 
-            except Exception as e:
-                print("Error:", e)
-                sys.exit()
+            except timeout:
+                print(f"Timeout occurred. Resending packet with seq_num={sequence_num}, flags=0")
+                send(sock, data[:1460], sequence_num, addr)
+
+
+# Uses old method
+def receive(sock, test, filename):
+    handle_handshake(sock)
 
     global expected_seq_num
     with open(filename, 'wb') as f:
@@ -213,22 +173,23 @@ def receive(sock, test, filename):
                 print(f"Received packet with seq_num", seq_num)
                 app_data = msg[12:]
                 send_ack(sock, expected_seq_num, addr)
+                print("Sent ACK msg with ack_num", expected_seq_num)
                 expected_seq_num += 1
                 #ack_msg = create_packet(0, global_ack_num, flags, win, b'')
 
                 #sock.sendto(ack_msg, addr)
-                print("Sent ACK msg with ack_num", expected_seq_num - 1)
+
 
                 f.write(app_data)
 
             # Usikker om man skal resende ACK melding til forrige packet hvis man får det igjen
             elif not fin and not syn and not ack and seq_num != expected_seq_num:
-                print(f"Received duplicate packet with seq_num", seq_num)
+                if seq_num == expected_seq_num - 1:
+                    print(f"Received duplicate packet with seq_num", seq_num)
+                    send_ack(sock, expected_seq_num - 1, addr)
 
-                send_ack(sock, expected_seq_num - 1, addr)
-                #ack_msg = create_packet(0, global_ack_num - 1, flags, win, b'')
-
-                #sock.sendto(ack_msg, addr)
+                else:
+                    print("Received out-of-order packet. Ignoring")
 
             if fin and not ack and not syn and seq_num == expected_seq_num:
                 print("FIN msg received with seq_num", seq_num)
@@ -237,16 +198,14 @@ def receive(sock, test, filename):
                 #fin_ack_msg = create_packet(0, global_ack_num, flags, win, b'')
                 #sock.sendto(fin_ack_msg, addr)
 
-                acknowledgment_num = seq_num + 1
                 sock.close()
                 return
 
 
-def close_conn(sock, addr):
-    global sent_seq_num
+def close_conn(sock, addr, next_seq_num):
 
     flags = 2
-    fin_msg = create_packet(sent_seq_num, 0, flags, 0, b'')
+    fin_msg = create_packet(next_seq_num, 0, flags, 0, b'')
     sock.sendto(fin_msg, addr)
 
     fin_ack_received = False
@@ -258,17 +217,17 @@ def close_conn(sock, addr):
             seq_num, ack_num, flags, win = parse_header(header_from_msg)
             syn, ack, fin = parse_flags(flags)
 
-            if ack and ack_num == sent_seq_num:
+            if ack and ack_num == next_seq_num:
                 print("Received ACK msg for FIN msg with ack_num", ack_num)
-                sent_seq_num += 1
+                next_seq_num += 1
                 sock.close()
                 fin_ack_received = True
                 return
 
-            elif not ack and ack_num < sent_seq_num:
+            elif not ack and ack_num < next_seq_num:
                 print("Received duplicate ACK msg with ack_num", ack_num)
                 flags = 2
-                fin_msg = create_packet(sent_seq_num, 0, flags, 0, b'')
+                fin_msg = create_packet(next_seq_num, 0, flags, 0, b'')
                 sock.sendto(fin_msg, addr)
         except timeout:
             print(f"Timeout occurred. Resending FIN msg")
