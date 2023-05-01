@@ -150,7 +150,7 @@ def stop_and_wait(sock, addr, data):
 
 
 # Uses old method
-def receive(sock, test):
+def RECV_STOP(sock, test):
     handle_handshake(sock)
     expected_seq_num = 1
     received_data = b''

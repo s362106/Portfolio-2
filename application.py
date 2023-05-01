@@ -26,7 +26,7 @@ def run_server_saw(ip, port, reliable_mode, test):
         server_socket.bind((ip, port))
         print(f"Server listening on {ip}:{port}")
 
-        received_data = receive(server_socket, False)
+        received_data = RECV_STOP(server_socket, False)
         with open(file_path, 'wb') as file:
             file.write(received_data)
 
@@ -66,10 +66,10 @@ def test_skip_ack(ip, port, reliable_mode):
             while True:
                 if reliable_mode == "stop_and_wait":
                     if first == 1:
-                        data = receive(server_socket, test=True)
+                        data = RECV_STOP(server_socket, test=True)
                         first += 1
                     else:
-                        data = receive(server_socket, test)
+                        data = RECV_STOP(server_socket, test)
                     if not data:
                         break
                     file.write(data)
