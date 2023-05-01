@@ -14,6 +14,9 @@ sent_seq_num = 1
 acknowledgment_num = 1
 expected_seq_num = 1
 
+next_seq_num = 1
+base_seq_num = 1
+
 
 def create_packet(seq_num, ack_num, flags, window_size, data):
     header = pack(header_format, seq_num, ack_num, flags, window_size)
@@ -243,8 +246,7 @@ def close_conn(sock, addr):
             print(f"Timeout occurred. Resending FIN msg")
             sock.sendto(fin_msg, addr)
 
-def go_back_n(sock, addr, file_name):
-    window_size = 5
+def GBN(sock, addr, file_name, window_size):
     next_seq_num = 1
     base_seq_num = 1
     unacked_packets = {}
@@ -292,7 +294,7 @@ def go_back_n(sock, addr, file_name):
 
 
 
-def receive_go_back_n(sock, file_name):
+def RECV_GBN(sock, file_name):
     expected_seq_num = 1
     with open(file_name, 'wb') as file:
         while True:
