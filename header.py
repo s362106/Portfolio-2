@@ -9,11 +9,7 @@ TIMEOUT = 0.5
 header_format = '!IIHH'
 
 handshake_complete = False
-sent_seq_num = 1
-expected_seq_num = 1
 
-next_seq_num = 1
-base_seq_num = 1
 
 
 def create_packet(seq_num, ack_num, flags, window_size, data):
@@ -369,11 +365,11 @@ def RECV_GBN(sock):
                 expected_seq_num += 1
 
                 # Acknowledge the last received packet
-                send_ack(sock, seq_num+1, addr)
+                send_ack(sock, seq_num, addr)
                 #send_ack(sock, ack_num=seq_num+1, seq_num=expected_seq_num)
-            elif fin and not ack and seq_num >= expected_seq_num:
+            elif fin and not ack and seq_num == expected_seq_num:
                 print("Received FIN msg with seq_num", seq_num)
-                send_ack(sock, seq_num+1, addr)
+                send_ack(sock, seq_num, addr)
                 sock.close()
                 return received_data
             else:

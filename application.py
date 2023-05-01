@@ -93,7 +93,7 @@ def run_client_gbn(recv_ip, recv_port, window):
         with open(file_path, 'rb') as f:
             file_data = f.read()
 
-        GBN(sender_sock, addr, file_data, window)
+        GBN(sender_sock, addr, file_data, window_size=15)
         #GBN(sender_sock, addr, file_path, window)
 
     except IOError:
@@ -124,7 +124,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-s', '--server', action='store_true', help='Run in server mode')
     parser.add_argument('-p', '--port', type=int, default=12000, help='Choose the port number')
-    parser.add_argument('-f', '--file_name', type=str, help='File name to store the data in')
+    parser.add_argument('-f', '--file_name', type=str, default='Screenshot 2023-04-28 at 19.57.31.png', help='File name to store the data in')
     parser.add_argument('-r', '--reliability', type=str, default='saw',
                         help='Choose reliability of the data transfer')
     parser.add_argument('-i', '--ip_address', type=str, default='127.0.0.1', help='Choose IP address')
