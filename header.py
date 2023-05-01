@@ -367,38 +367,40 @@ def GBN(send_sock, addr, data, window_size):
 
                 send_sock.sendto(new_packet, addr)
 
-        if not unacked_packets and data_offset >= len(data):
-            break
 
 
 
 
 # Koden under, tar imot filnavnet med engang, noe som kanskje er feil
-def RECV_GBN(sock, file_name):
+def RECV_GBN(sock):
     handle_handshake(sock)
 
     expected_seq_num = 1
-    with open(file_name, 'wb') as file:
-        while True:
-            message, addr = sock.recvfrom(1472)
-            seq_num, ack_num, flags, win = parse_header(message[:12])
-            syn, ack, fin = parse_flags(flags)
+    received_data = b''
+    while True:
+        message, addr = sock.recvfrom(1472)
+        seq_num, ack_num, flags, win = parse_header(message[:12])
+        syn, ack, fin = parse_flags(flags)
 
-            if syn:
+        if syn:
+            send_ack(sock, seq_num+1, addr)
+            #send_ack(sock, ack_num=seq_num+1, seq_num=expected_seq_num)
+
+        elif not ack and seq_num >= expected_seq_num:
+            if not fin and seq_num == expected_seq_num:
+                print("Received in-order with seq_num=", seq_num)
+                received_data += message[12:]
+                expected_seq_num += 1
+
+                # Acknowledge the last received packet
                 send_ack(sock, seq_num+1, addr)
                 #send_ack(sock, ack_num=seq_num+1, seq_num=expected_seq_num)
-
-            elif not ack and seq_num >= expected_seq_num:
-                if seq_num == expected_seq_num:
-                    print("Received in-order with seq_num=", seq_num)
-                    file.write(message[12:])
-                    expected_seq_num += 1
-
-                    # Acknowledge the last received packet
-                    send_ack(sock, seq_num+1, addr)
-                    #send_ack(sock, ack_num=seq_num+1, seq_num=expected_seq_num)
-
-                else:
-                    print("Received out-of-order with seq_num=", seq_num)
-                    # Discard out-of-order packets
-                    pass
+            elif fin and not ack and seq_num >= expected_seq_num:
+                print("Received FIN msg with seq_num", seq_num)
+                send_ack(sock, seq_num+1, addr)
+                sock.close()
+                return received_data
+            else:
+                print("Received out-of-order with seq_num=", seq_num)
+                # Discard out-of-order packets
+                pass
