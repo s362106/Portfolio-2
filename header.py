@@ -281,12 +281,21 @@ def GBN(send_sock, addr, data, window_size):
     base_seq_num = 1
     unacked_packets = {}
     data_offset = 0
+    fin_sent = False
 
-    while True:
+    while not fin_sent:
         while next_seq_num < base_seq_num + window_size:
             chunk_size = min(1460, len(data) - data_offset)
             if chunk_size == 0:
-                break
+                if not unacked_packets:
+                    # All sent packets have been acknowledged, send FIN message
+                    fin_packet = create_packet(next_seq_num, 0, 2, 0, b'')
+                    send_sock.sendto(fin_packet, addr)
+                    print("FIN msg sent. Waiting for ACK...")
+                    fin_sent = True
+                    break
+                else:
+                    break
 
             chunk_data = data[data_offset:data_offset+chunk_size]
             send(send_sock, chunk_data, next_seq_num, addr)
@@ -294,29 +303,45 @@ def GBN(send_sock, addr, data, window_size):
             next_seq_num += 1
             data_offset += chunk_size
 
+        if not fin_sent:
+            send_sock.settimeout(0.5)
+            try:
+                ack_msg, addr = send_sock.recvfrom(1472)
+                seq_num, ack_num, flags, win = parse_header(ack_msg[:12])
+                syn, ack, fin = parse_flags(flags)
+
+                if ack and ack_num >= base_seq_num:
+                    print("ACK msg: ack_num=", ack_num)
+                    base_seq_num = ack_num + 1
+                    new_unacked_packets = {}
+                    for seq_num, packet_data in unacked_packets.items():
+                        if seq_num >= base_seq_num:
+                            new_unacked_packets[seq_num] = packet_data
+
+                    unacked_packets = new_unacked_packets
+
+            except timeout:
+                print("Timeout occurred. Resending packets")
+                for seq_num, packet_data in unacked_packets.items():
+                    new_packet = create_packet(seq_num, 0, 0, 0, packet_data)
+                    send_sock.sendto(new_packet, addr)
+
+    # Wait for ACK for the FIN message
+    while True:
         send_sock.settimeout(0.5)
         try:
             ack_msg, addr = send_sock.recvfrom(1472)
             seq_num, ack_num, flags, win = parse_header(ack_msg[:12])
             syn, ack, fin = parse_flags(flags)
 
-            if ack and ack_num >= base_seq_num:
-                print("ACK msg: ack_num=", ack_num)
-                base_seq_num = ack_num + 1
-                new_unacked_packets = {}
-                for seq_num, packet_data in unacked_packets.items():
-                    if seq_num >= base_seq_num:
-                        new_unacked_packets[seq_num] = packet_data
-
-                unacked_packets = new_unacked_packets
+            if ack and ack_num == next_seq_num:
+                print("ACK for FIN msg received. Exiting...")
+                break
 
         except timeout:
-            print("Timeout occurred. Resending packets")
-            for seq_num, packet_data in unacked_packets.items():
+            print("Timeout occurred while waiting for ACK for FIN msg. Exiting...")
+            break
 
-                new_packet = create_packet(seq_num, 0, 0, 0, packet_data)
-
-                send_sock.sendto(new_packet, addr)
 
 
 
