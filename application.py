@@ -82,7 +82,11 @@ def run_client_gbn(recv_ip, recv_port, window):
     try:
         sender_sock = socket(AF_INET, SOCK_DGRAM)
         addr = (recv_ip, recv_port)
-        GBN(sender_sock, addr, file_path, window)
+        with open(file_path, 'rb') as f:
+            file_data = f.read()
+
+        GBN(sender_sock, addr, file_data, window)
+        #GBN(sender_sock, addr, file_path, window)
 
     except IOError:
         print("Error opening file")
