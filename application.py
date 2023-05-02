@@ -101,7 +101,6 @@ def run_client(ip, port, reliability_func, file_path):
 
     if reliability_func == "SAW":
         stop_and_wait(sender_sock, addr, file_data)
-    
     elif reliability_func == "GBN":
         GBN(sender_sock, addr, file_data, window_size=15)
     elif reliability_func == "SR":
