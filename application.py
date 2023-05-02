@@ -3,7 +3,7 @@ from socket import *
 import ipaddress
 import argparse
 import sys
-from header import *
+from DRTP import *
 
 BUFFER_SIZE = 1472
 HEADER_SIZE = 12
