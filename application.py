@@ -19,6 +19,7 @@ def check_ip(address):
 
     except ValueError:
         print(f"The IP address {address} is not valid")
+        
 
 def run_server(ip, port, reliability_func):
     file_path = 'received_file.png'
