@@ -422,3 +422,72 @@ def RECV_GBN(sock):
                 print("Received out-of-order with seq_num=", seq_num)
                 # Discard out-of-order packets
                 pass
+
+
+def SR(server_socket, file_path, window_size):
+    seq_num = 1
+    window_start = 1
+    last_packet_sent = False
+
+    packets_in_flight = {}
+    for i in range(window_start, window_start+window_size):
+        data, addr = server_socket.recvfrom(BUFFER_SIZE)
+        header_msg = data[:12]
+        msg = data[12:]
+
+        seq, ack_nr, flags, win = parse_header(header_msg)
+        syn, ack, fin = parse_flags(flags)
+
+        if seq == seq_num:
+            packets_in_flight[seq_num] = msg
+            with open(file_path, 'ab') as file:
+                file.write(msg)
+
+            seq_num += 1
+
+        if fin:
+            flags = 6
+            packet = create_packet(0, seq_num, flags, 0, b'')
+            server_socket.sendto(packet, addr)
+            last_packet_sent = True
+            break
+
+    while not last_packet_sent:
+        try:
+            server_socket.settimeout(0.5)
+            data, addr = server_socket.recvfrom(BUFFER_SIZE)
+            header_msg = data[:12]
+            seq, ack_nr, flags, win = parse_header(header_msg)
+
+            if seq >= window_start and seq < window_start + window_size:
+                packets_in_flight[seq] = data[12:]
+                
+                while window_start in packets_in_flight:
+                    with open(file_path, 'ab') as file:
+                        file.write(packets_in_flight[window_start])
+                        del packets_in_flight[window_start]
+                        window_start += 1
+
+                if fin:
+                    flags = 6
+                    packet = create_packet(0, seq_num, flags, 0, b'')
+                    server_socket.sendto(packet, addr)
+                    last_packet_sent = True
+                    break
+
+                ack_nr = seq_num
+                flags = 4
+                ack_packet = create_packet(0, ack_nr, flags, 0, b'')
+                server_socket.sendto(ack_packet, addr)
+
+        except timeout:
+            print("Timeout occured. Resending packets from window start", window_start)
+            for seq, packet_data in packets_in_flight.items():
+                header = create_packet(seq, 0, 2, 0)
+                packet = header + packet_data
+                server_socket.sendto(packet, addr)
+
+    print("All packets received and written to file")
+
+
+def RECV_SR():
