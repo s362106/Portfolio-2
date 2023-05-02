@@ -13,12 +13,15 @@ HEADER_SIZE = 12
 
 # Define the simplified TCP header structure
 
-def check_ip(address):
+def check_ip(ip_address):
     try:
-        ipaddress.ip_address(address)
-
-    except ValueError:
-        print(f"The IP address {address} is not valid")
+        # convert argument to an IPv4 address 
+        ipaddress.ip_address(ip_address)
+    except:
+        # raise error if not a valid dotted decimal notation
+        raise argparse.ArgumentTypeError('IP address must be in format e.g. 10.0.0.2')
+    # return dotted decimal notation 
+    return ip_address
 
 def check_port(port_number):
     try:
@@ -137,14 +140,14 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--ip_address', type=check_ip, default='127.0.0.1', help='Choose IP address')
     parser.add_argument('-p', '--port', type=check_port, default=12000, help='Choose the port number')
     parser.add_argument('-f', '--file_name', type=str, default='./Screenshot 2023-04-28 at 19.57.31.png', help='File name to store the data in')
-    parser.add_argument('-r', '--reliability', choices=['SAW', 'GBN', 'SR'], default='SAW', help='Choose reliability of the data transfer')
+    parser.add_argument('-r', '--reliability', choices=['SAW', 'GBN', 'SR'], default='SAW', type=str.upper, help='Choose reliability of the data transfer')
     parser.add_argument('-t', '--test', type=str, default='', help='Choose which artificial test case')
     parser.add_argument('-w', '--window', type=int, default=5, help='Select window size (only in GBN & SR)')
 
     args = parser.parse_args()
 
     if args.server:
-        run_server(args.ip_address, args.port, str(args.reliability).upper())
+        run_server(args.ip_address, args.port, args.reliability)
 
     elif args.client:
         run_client(args.ip_address, args.port, str(args.reliability).upper(), args.file_name)
