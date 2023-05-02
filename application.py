@@ -150,5 +150,5 @@ if __name__ == '__main__':
         run_server(args.ip_address, args.port, args.reliability)
 
     elif args.client:
-        run_client(args.ip_address, args.port, str(args.reliability).upper(), args.file_name)
+        run_client(args.ip_address, args.port, args.reliability, args.file_name)
 
