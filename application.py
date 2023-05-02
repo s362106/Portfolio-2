@@ -104,7 +104,7 @@ def run_client(ip, port, reliability_func, file_path):
         if reliability_func == "SAW":
             SEND_SAW(sender_sock, addr, file_data)
         elif reliability_func == "GBN":
-            SEND_GBN(sender_sock, addr, file_data, window_size=15)
+            SEND_GBN(sender_sock, addr, file_data, window_size=5)
         elif reliability_func == "SR":
             SEND_SR(sender_sock, addr, file_data, window_size=15)
         else:
@@ -125,14 +125,29 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', type=check_port, default=12000, help='Choose the port number')
     parser.add_argument('-f', '--file_name', type=str, default='./Screenshot 2023-04-28 at 19.57.31.png', help='File name to store the data in')
     parser.add_argument('-r', '--reliability', choices=['SAW', 'GBN', 'SR'], default='SAW', type=str.upper, help='Choose reliability of the data transfer')
-    parser.add_argument('-t', '--test', type=check_test, default=None, help='Choose which artificial test case')
+    parser.add_argument('-t', '--test', type=str, default=None, help='Choose which artificial test case')
     parser.add_argument('-w', '--window', type=int, default=5, help='Select window size (only in GBN & SR)')
 
     args = parser.parse_args()
 
     if args.server:
-        run_server(args.ip_address, args.port, args.reliability, args.test)
+
+        if str(args.test).upper() == 'SKIP_ACK':
+            run_server(args.ip_address, args.port, args.reliability, True)
+
+        elif not args.test:
+            run_server(args.ip_address, args.port, args.reliability, False)
+
+        else:
+            print("Type in skip_ack to as argument to test skipping ack msg")
+            sys.exit()
 
     elif args.client:
-        run_client(args.ip_address, args.port, args.reliability, args.file_name)
+        if str(args.test).upper() == 'LOSS':
+           print("Loss ikke fikset enda")
 
+        elif not args.test:
+            run_client(args.ip_address, args.port, args.reliability, args.file_name)
+        else:
+            print("Type in 'loss' as argument to test skipping sequence number")
+            sys.exit()
