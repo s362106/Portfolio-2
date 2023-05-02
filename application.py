@@ -36,9 +36,21 @@ def check_port(port_number):
         raise argparse.ArgumentTypeError('Port must be in the range [1024, 65535]')
     # return int
     return port_number
-        
 
-def run_server(ip, port, reliability_func):
+def check_test(test):
+    if test == 'skip_ack':
+        # return int
+        return True
+    elif test == 'loss':
+        # return int
+        return True
+    elif test == None:         
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Test must be either skip_ack (server) or loss (client)')
+
+
+def run_server(ip, port, reliability_func, test):
     file_path = 'received_file.png'
     try:
         server_socket = socket(AF_INET, SOCK_DGRAM)
@@ -53,10 +65,10 @@ def run_server(ip, port, reliability_func):
     print("Performing three-way handshake")
 
     if reliability_func == "SAW":
-        received_data = RECV_STOP(server_socket, False)
+        received_data = RECV_STOP(server_socket, test)
     
     elif reliability_func == "GBN":
-        received_data = RECV_GBN(server_socket, True)
+        received_data = RECV_GBN(server_socket, test)
 
     #elif reliability_func == "SR":
         #received_data = RECV_SR(server_socket)
@@ -94,41 +106,7 @@ def run_client(ip, port, reliability_func, file_path):
         GBN(sender_sock, addr, file_data, window_size=15)
     
     else:
-        print("Invalid reliability function specified")
-
-
-def test_skip_ack(ip, port, reliable_mode):
-    file_path = 'received_file.png'
-    try:
-        server_socket = socket(AF_INET, SOCK_DGRAM)
-        server_socket.bind((ip, port))
-        print(f"Server listening on {ip}:{port}")
-        # drtp = DRTP(server_socket, ip, port, reliable_mode)
-        first = 1
-        with open(file_path, 'wb') as file:
-            start_time = time.time()
-
-            while True:
-                if reliable_mode == "SAW":
-                    if first == 1:
-                        data = RECV_STOP(server_socket, test=True)
-                        first += 1
-                    else:
-                        data = RECV_STOP(server_socket, test)
-                    if not data:
-                        break
-                    file.write(data)
-                    test = False
-
-                else:
-                    print("Reliable method chosen is not yet working")
-                    sys.exit()
-            elapsed_time = time.time() - start_time
-            print("Tranfser time:", elapsed_time)
-    except OSError as e:
-        print("Failed to bind. Error:", e)
-        sys.exit()
-    
+        print("Invalid reliability function specified")    
 
 
 
@@ -141,13 +119,13 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', type=check_port, default=12000, help='Choose the port number')
     parser.add_argument('-f', '--file_name', type=str, default='./Screenshot 2023-04-28 at 19.57.31.png', help='File name to store the data in')
     parser.add_argument('-r', '--reliability', choices=['SAW', 'GBN', 'SR'], default='SAW', type=str.upper, help='Choose reliability of the data transfer')
-    parser.add_argument('-t', '--test', type=str, default='', help='Choose which artificial test case')
+    parser.add_argument('-t', '--test', type=check_test, default=None, help='Choose which artificial test case')
     parser.add_argument('-w', '--window', type=int, default=5, help='Select window size (only in GBN & SR)')
 
     args = parser.parse_args()
 
     if args.server:
-        run_server(args.ip_address, args.port, args.reliability)
+        run_server(args.ip_address, args.port, args.reliability, args.test)
 
     elif args.client:
         run_client(args.ip_address, args.port, args.reliability, args.file_name)
