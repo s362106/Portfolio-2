@@ -146,12 +146,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.server:
-
-        if str(args.reliability).upper() == 'gbn'.upper():
-            run_server_gbn(args.ip_address, args.port)
-
-        elif str(args.reliability).upper() == 'saw'.upper():
-            run_server_saw(args.ip_address, args.port, args.reliability, args.test)
+        str(args.reliability).upper()
+        run_server(args.ip_address, args.port, args.file_name)
 
     elif args.client:
         if str(args.reliability).upper() == 'gbn'.upper():
