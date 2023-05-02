@@ -66,13 +66,10 @@ def run_server(ip, port, reliability_func, test):
 
     if reliability_func == "SAW":
         received_data = RECV_STOP(server_socket, test)
-    
     elif reliability_func == "GBN":
         received_data = RECV_GBN(server_socket, test)
-
     elif reliability_func == "SR":
         received_data = RECV_SR(server_socket, window_size=15)
-
     else:
         print("Invalid reliability function specified")
     
@@ -100,11 +97,11 @@ def run_client(ip, port, reliability_func, file_path):
         sys.exit()
 
     if reliability_func == "SAW":
-        stop_and_wait(sender_sock, addr, file_data)
+        SEND_SAW(sender_sock, addr, file_data)
     elif reliability_func == "GBN":
-        GBN(sender_sock, addr, file_data, window_size=15)
+        SEND_GBN(sender_sock, addr, file_data, window_size=15)
     elif reliability_func == "SR":
-        SR(sender_sock, addr, file_data, window_size=15)
+        SEND_SR(sender_sock, addr, file_data, window_size=15)
     else:
         print("Invalid reliability function specified")    
 
