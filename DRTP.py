@@ -201,7 +201,7 @@ def stop_and_wait(sock, addr, data):
 
 
 # Uses old method
-def RECV_STOP(sock, test):
+def RECV_STOP(sock, skip_ack):
     handle_handshake(sock)
     expected_seq_num = 1
     received_data = b''
@@ -213,8 +213,10 @@ def RECV_STOP(sock, test):
         seq_num, ack_num, flags, win = parse_header(header_from_msg)
         syn, ack, fin = parse_flags(flags)
 
-        if test:
-            time.sleep(1)
+        if skip_ack:
+            print("Skipping first ACK msg")
+            skip_ack = False
+            continue
 
         if not fin and not syn and not ack and seq_num == expected_seq_num:
             print(f"Received packet with seq_num", seq_num)
@@ -431,7 +433,7 @@ def SR(server_socket, file_path, window_size):
 
     packets_in_flight = {}
     for i in range(window_start, window_start+window_size):
-        data, addr = server_socket.recvfrom(BUFFER_SIZE)
+        data, addr = server_socket.recvfrom(1472)
         header_msg = data[:12]
         msg = data[12:]
 
@@ -455,7 +457,7 @@ def SR(server_socket, file_path, window_size):
     while not last_packet_sent:
         try:
             server_socket.settimeout(0.5)
-            data, addr = server_socket.recvfrom(BUFFER_SIZE)
+            data, addr = server_socket.recvfrom(1472)
             header_msg = data[:12]
             seq, ack_nr, flags, win = parse_header(header_msg)
 
