@@ -32,7 +32,7 @@ def run_server(ip, port, reliability_func, file_path):
 
     print("Performing three-way handshake")
 
-    if reliability_func == "stop_and_wait":
+    if reliability_func == "SAW":
         try:
             received_data = RECV_STOP(server_socket, False)
             with open(file_path, 'wb') as file:
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--server', action='store_true', help='Run in server mode')
     parser.add_argument('-p', '--port', type=int, default=12000, help='Choose the port number')
     parser.add_argument('-f', '--file_name', type=str, default='Screenshot 2023-04-28 at 19.57.31.png', help='File name to store the data in')
-    parser.add_argument('-r', '--reliability', type=str, default='saw',
+    parser.add_argument('-r', '--reliability', type=str, default='SAW',
                         help='Choose reliability of the data transfer')
     parser.add_argument('-i', '--ip_address', type=str, default='127.0.0.1', help='Choose IP address')
     parser.add_argument('-t', '--test', type=str, default='', help='Choose which artificial test case')
@@ -146,8 +146,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.server:
-        str(args.reliability).upper()
-        run_server(args.ip_address, args.port, args.file_name)
+        run_server(args.ip_address, args.port, str(args.reliability).upper(), args.file_name)
 
     elif args.client:
         if str(args.reliability).upper() == 'gbn'.upper():
