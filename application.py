@@ -5,7 +5,7 @@ import argparse
 import sys
 from DRTP import *
 
-# Her er det en endring
+# Hai
 
 BUFFER_SIZE = 1472
 HEADER_SIZE = 12
@@ -47,7 +47,7 @@ def check_test(test):
     elif test == None:         
         return False
     else:
-        raise argparse.ArgumentTypeError('Test must be either skip_ack (server) or loss (client)')
+        raise argparse.ArgumentTypeError('Test must be either "skip_ack" (server) or "loss" (client)')
 
 
 def run_server(ip, port, reliability_func, test):
