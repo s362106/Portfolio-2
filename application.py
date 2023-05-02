@@ -52,6 +52,7 @@ def check_test(test):
 
 def run_server(ip, port, reliability_func, test):
     file_path = 'received_file.png'
+    received_data = b''
     try:
         server_socket = socket(AF_INET, SOCK_DGRAM)
         server_socket.bind((ip, port))
@@ -62,19 +63,22 @@ def run_server(ip, port, reliability_func, test):
         print("Failed to bind. Error:", e)
         sys.exit()
 
-    print("Performing three-way handshake")
+    try:
+        if reliability_func == "SAW":
+            received_data = RECV_STOP(server_socket, test)
 
-    if reliability_func == "SAW":
-        received_data = RECV_STOP(server_socket, test)
-    
-    elif reliability_func == "GBN":
-        received_data = RECV_GBN(server_socket, test)
+        elif reliability_func == "GBN":
+            received_data = RECV_GBN(server_socket, test)
 
-    elif reliability_func == "SR":
-        received_data = RECV_SR(server_socket, window_size=15)
+        elif reliability_func == "SR":
+            received_data = RECV_SR(server_socket, window_size=15)
 
-    else:
-        print("Invalid reliability function specified")
+        else:
+            print("Invalid reliability function specified")
+
+    except KeyboardInterrupt:
+        server_socket.close()
+        sys.exit()
     
     try:
         with open(file_path, 'wb') as file:
@@ -99,14 +103,18 @@ def run_client(ip, port, reliability_func, file_path):
         print("Error opening file")
         sys.exit()
 
-    if reliability_func == "SAW":
-        stop_and_wait(sender_sock, addr, file_data)
-    elif reliability_func == "GBN":
-        GBN(sender_sock, addr, file_data, window_size=15)
-    elif reliability_func == "SR":
-        SR(sender_sock, addr, file_data, window_size=15)
-    else:
-        print("Invalid reliability function specified")    
+    try:
+        if reliability_func == "SAW":
+            stop_and_wait(sender_sock, addr, file_data)
+        elif reliability_func == "GBN":
+            GBN(sender_sock, addr, file_data, window_size=15)
+        elif reliability_func == "SR":
+            SR(sender_sock, addr, file_data, window_size=15)
+        else:
+            print("Invalid reliability function specified")
+    except KeyboardInterrupt:
+        sender_sock.close()
+        sys.exit()
 
 
 
