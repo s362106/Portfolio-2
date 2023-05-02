@@ -36,34 +36,48 @@ def run_server(ip, port, reliability_func):
     print("Performing three-way handshake")
 
     if reliability_func == "SAW":
-        try:
-            received_data = RECV_STOP(server_socket, False)
-            with open(file_path, 'wb') as file:
-                file.write(received_data)
-
-        except OSError as e:
-            print("Failed to bind. Error:", e)
-            sys.exit()
-
+        received_data = RECV_STOP(server_socket, False)
+    
     elif reliability_func == "GBN":
-        try:
-            received_data = RECV_GBN(server_socket)
-
-            with open(file_path, 'wb') as file:
-                file.write(received_data)
-
-        except OSError as e:
-            print("Failed to bind. Error:", e)
-            sys.exit()
+        received_data = RECV_GBN(server_socket)
 
     #elif reliability_func == "SR":
-        #server_sr(server_socket, file_path)
+        #received_data = RECV_SR(server_socket)
 
     else:
         print("Invalid reliability function specified")
+    
+    try:
+        with open(file_path, 'wb') as file:
+            file.write(received_data)
+
+    except IOError:
+        print("Error opening file")
+        sys.exit()
 
     print(f"File received and saved to {file_path}")
     server_socket.close()
+
+
+def run_client(ip, port, reliability_func, file_path):
+    try:
+        sender_sock = socket(AF_INET, SOCK_DGRAM)
+        addr = (ip, port)
+        with open(file_path, 'rb') as f:
+            file_data = f.read()
+
+    except IOError:
+        print("Error opening file")
+        sys.exit()
+
+    if reliability_func == "SAW":
+        stop_and_wait(sender_sock, addr, file_data)
+    
+    elif reliability_func == "GBN":
+        GBN(sender_sock, addr, file_data, window_size=15)
+    
+    else:
+        print("Invalid reliability function specified")
 
 
 def test_skip_ack(ip, port, reliable_mode):
@@ -78,7 +92,7 @@ def test_skip_ack(ip, port, reliable_mode):
             start_time = time.time()
 
             while True:
-                if reliable_mode == "stop_and_wait":
+                if reliable_mode == "SAW":
                     if first == 1:
                         data = RECV_STOP(server_socket, test=True)
                         first += 1
@@ -97,24 +111,7 @@ def test_skip_ack(ip, port, reliable_mode):
     except OSError as e:
         print("Failed to bind. Error:", e)
         sys.exit()
-
-
-def run_client(ip, port, reliability_func, file_path):
-    try:
-        sender_sock = socket(AF_INET, SOCK_DGRAM)
-        addr = (ip, port)
-        with open(file_path, 'rb') as f:
-            file_data = f.read()
-
-        if reliability_func == "SAW":
-            stop_and_wait(sender_sock, addr, file_data)
-        
-        elif reliability_func == "GBN":
-            GBN(sender_sock, addr, file_data, window_size=15)
-
-    except IOError:
-        print("Error opening file")
-        sys.exit()
+    
 
 
 
