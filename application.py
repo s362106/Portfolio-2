@@ -5,6 +5,8 @@ import argparse
 import sys
 from DRTP import *
 
+# Her er det en endring
+
 BUFFER_SIZE = 1472
 HEADER_SIZE = 12
 
