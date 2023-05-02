@@ -19,6 +19,20 @@ def check_ip(address):
 
     except ValueError:
         print(f"The IP address {address} is not valid")
+
+def check_port(port_number):
+    try:
+        # convert argument to an integer data type
+        port_number = int(port_number)              
+    except ValueError:       
+        # raise error if not integer                       
+        raise argparse.ArgumentTypeError('Port must be an integer')
+   
+    # raise error if not in range
+    if not 1024 <= port_number <= 65535:            
+        raise argparse.ArgumentTypeError('Port must be in the range [1024, 65535]')
+    # return int
+    return port_number
         
 
 def run_server(ip, port, reliability_func):
@@ -119,14 +133,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="A custom reliable data transfer protocol", epilog="End of help")
 
     parser.add_argument('-s', '--server', action='store_true', help='Run in server mode')
-    parser.add_argument('-p', '--port', type=int, default=12000, help='Choose the port number')
+    parser.add_argument('-c', '--client', action='store_true', help='Run in client mode')
+    parser.add_argument('-i', '--ip_address', type=check_ip, default='127.0.0.1', help='Choose IP address')
+    parser.add_argument('-p', '--port', type=check_port, default=12000, help='Choose the port number')
     parser.add_argument('-f', '--file_name', type=str, default='./Screenshot 2023-04-28 at 19.57.31.png', help='File name to store the data in')
-    parser.add_argument('-r', '--reliability', type=str, default='SAW',
-                        help='Choose reliability of the data transfer')
-    parser.add_argument('-i', '--ip_address', type=str, default='127.0.0.1', help='Choose IP address')
+    parser.add_argument('-r', '--reliability', choices=['SAW', 'GBN', 'SR'], default='SAW', help='Choose reliability of the data transfer')
     parser.add_argument('-t', '--test', type=str, default='', help='Choose which artificial test case')
     parser.add_argument('-w', '--window', type=int, default=5, help='Select window size (only in GBN & SR)')
-    parser.add_argument('-c', '--client', action='store_true', help='Run in client mode')
 
     args = parser.parse_args()
 
