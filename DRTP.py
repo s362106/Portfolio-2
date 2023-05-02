@@ -431,38 +431,88 @@ def RECV_GBN(sock, skip_ack):
                 pass
 
 
-def SR(server_socket, file_path, window_size):
+# Selective-Repeat (SR()) protocol
+def SR(send_sock, addr, file_path, window_size):
+    seq_num = 0
+    window_start = 0
+    packets = []
+    acks = {}
+
+    # Read the data from the file and split it into packets
+    with open(file_path, 'rb') as file:
+        while True:
+            data = file.read(1472)
+            if not data:
+                break  # End of file reached
+            packet = create_packet(seq_num, 0, 0, 0, data)
+            packets.append(packet)
+            seq_num += 1
+
+    # Send the packets to the client in a sliding window
+    while packets or not all(acks.values()):
+        # Send new packets
+        for i in range(window_start, window_start + window_size):
+            if i < seq_num and i not in acks:
+                send_sock.sendto(packets[i], addr)
+                acks[i] = False
+
+        # Wait for acknowledgements
+        send_sock.settimeout(0.5)
+        try:
+            data, addr = send_sock.recvfrom(1472)
+            header_msg = data[:12]
+            seq, ack_nr, flags, win = parse_header(header_msg)
+            syn, ack, fin = parse_flags(flags)
+
+            if ack_nr in acks:
+                acks[ack_nr] = True
+        except socket.timeout:
+            # Timeout occurred, resend unacknowledged packets
+            for i in range(window_start, window_start + window_size):
+                if i in acks and not acks[i]:
+                    send_sock.sendto(packets[i], addr)
+
+        # Slide the window
+        while window_start < seq_num and acks.get(window_start, False):
+            del acks[window_start]
+            window_start += 1
+
+
+def RECV_SR(sock, window_size):
     seq_num = 1
     window_start = 1
     last_packet_sent = False
 
     packets_in_flight = {}
-    for i in range(window_start, window_start+window_size):
-        data, addr = server_socket.recvfrom(1472)
+    received_data = b''
+    # Receive data packets within the window size
+    for i in range(window_start, window_start + window_size):
+        # Receive data and address from server socket
+        data, addr = sock.recvfrom(1472)
+        # Split the header and message from the received data
         header_msg = data[:12]
         msg = data[12:]
 
         seq, ack_nr, flags, win = parse_header(header_msg)
         syn, ack, fin = parse_flags(flags)
 
+        # If the sequence number matches the expected sequence number
         if seq == seq_num:
-            packets_in_flight[seq_num] = msg
-            with open(file_path, 'ab') as file:
-                file.write(msg)
+            # Add the packet to packets in flight and received data
+            packets_in_flight[seq_num], received_data = msg
+            seq_num += 1  # Update sequence number
 
-            seq_num += 1
-
+        # If the FIN flag is set
         if fin:
-            flags = 6
-            packet = create_packet(0, seq_num, flags, 0, b'')
-            server_socket.sendto(packet, addr)
-            last_packet_sent = True
-            break
+            print("Received FIN msg with seq_num", seq_num)
+            send_ack(sock, seq_num, addr)  # Sends last ack
+            sock.close()
+            return received_data
 
     while not last_packet_sent:
         try:
-            server_socket.settimeout(0.5)
-            data, addr = server_socket.recvfrom(1472)
+            sock.settimeout(0.5)
+            data, addr = sock.recvfrom(1472)
             header_msg = data[:12]
             seq, ack_nr, flags, win = parse_header(header_msg)
 
@@ -470,31 +520,26 @@ def SR(server_socket, file_path, window_size):
                 packets_in_flight[seq] = data[12:]
                 
                 while window_start in packets_in_flight:
-                    with open(file_path, 'ab') as file:
-                        file.write(packets_in_flight[window_start])
-                        del packets_in_flight[window_start]
-                        window_start += 1
+                    received_data = packets_in_flight[window_start]
+                    del packets_in_flight[window_start]
+                    window_start += 1
 
                 if fin:
-                    flags = 6
-                    packet = create_packet(0, seq_num, flags, 0, b'')
-                    server_socket.sendto(packet, addr)
-                    last_packet_sent = True
-                    break
+                    print("Received FIN msg with seq_num", seq_num)
+                    send_ack(sock, seq_num, addr)  # Sends last ack
+                    sock.close()
+                    return received_data
 
                 ack_nr = seq_num
                 flags = 4
                 ack_packet = create_packet(0, ack_nr, flags, 0, b'')
-                server_socket.sendto(ack_packet, addr)
+                sock.sendto(ack_packet, addr)
 
         except timeout:
             print("Timeout occured. Resending packets from window start", window_start)
             for seq, packet_data in packets_in_flight.items():
                 header = create_packet(seq, 0, 2, 0)
                 packet = header + packet_data
-                server_socket.sendto(packet, addr)
+                sock.sendto(packet, addr)
 
     print("All packets received and written to file")
-
-
-
