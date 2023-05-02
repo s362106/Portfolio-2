@@ -392,7 +392,7 @@ def GBN(send_sock, addr, data, window_size):
 
 
 # Koden under, tar imot filnavnet med engang, noe som kanskje er feil
-def RECV_GBN(sock):
+def RECV_GBN(sock, skip_ack):
     handle_handshake(sock)
 
     expected_seq_num = 1
@@ -402,8 +402,13 @@ def RECV_GBN(sock):
         seq_num, ack_num, flags, win = parse_header(message[:12])
         syn, ack, fin = parse_flags(flags)
 
+        if skip_ack:
+            skip_ack = False
+            print("Skipping first ACK msg")
+            continue
+
         if syn:
-            send_ack(sock, seq_num + 1, addr)
+            handle_handshake(sock)
             # send_ack(sock, ack_num=seq_num+1, seq_num=expected_seq_num)
 
         elif not ack and seq_num >= expected_seq_num:

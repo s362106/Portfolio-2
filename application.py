@@ -56,7 +56,7 @@ def run_server(ip, port, reliability_func):
         received_data = RECV_STOP(server_socket, False)
     
     elif reliability_func == "GBN":
-        received_data = RECV_GBN(server_socket)
+        received_data = RECV_GBN(server_socket, True)
 
     #elif reliability_func == "SR":
         #received_data = RECV_SR(server_socket)
