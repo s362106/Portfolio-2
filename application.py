@@ -71,7 +71,7 @@ def run_server(ip, port, reliability_func, test):
         received_data = RECV_GBN(server_socket, test)
 
     elif reliability_func == "SR":
-        received_data = RECV_SR(server_socket)
+        received_data = RECV_SR(server_socket, window_size=15)
 
     else:
         print("Invalid reliability function specified")

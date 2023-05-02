@@ -432,29 +432,27 @@ def RECV_GBN(sock, skip_ack):
 
 
 # Selective-Repeat (SR()) protocol
-def SR(send_sock, addr, file_path, window_size):
+def SR(send_sock, addr, data, window_size):
     seq_num = 0
     window_start = 0
     packets = []
-    acks = {}
+    received_acks = {}
 
     # Read the data from the file and split it into packets
-    with open(file_path, 'rb') as file:
-        while True:
-            data = file.read(1472)
-            if not data:
-                break  # End of file reached
-            packet = create_packet(seq_num, 0, 0, 0, data)
-            packets.append(packet)
-            seq_num += 1
+    while True:
+        if not data:
+            break  # End of file reached
+        packet = create_packet(seq_num, 0, 0, 0, data)
+        packets.append(packet)
+        seq_num += 1
 
     # Send the packets to the client in a sliding window
-    while packets or not all(acks.values()):
+    while packets or not all(received_acks.values()):
         # Send new packets
         for i in range(window_start, window_start + window_size):
-            if i < seq_num and i not in acks:
+            if i < seq_num and i not in received_acks:
                 send_sock.sendto(packets[i], addr)
-                acks[i] = False
+                received_acks[i] = False
 
         # Wait for acknowledgements
         send_sock.settimeout(0.5)
@@ -464,17 +462,17 @@ def SR(send_sock, addr, file_path, window_size):
             seq, ack_nr, flags, win = parse_header(header_msg)
             syn, ack, fin = parse_flags(flags)
 
-            if ack_nr in acks:
-                acks[ack_nr] = True
+            if ack_nr in received_acks:
+                received_acks[ack_nr] = True
         except socket.timeout:
             # Timeout occurred, resend unacknowledged packets
             for i in range(window_start, window_start + window_size):
-                if i in acks and not acks[i]:
+                if i in received_acks and not received_acks[i]:
                     send_sock.sendto(packets[i], addr)
 
         # Slide the window
-        while window_start < seq_num and acks.get(window_start, False):
-            del acks[window_start]
+        while window_start < seq_num and received_acks.get(window_start, False):
+            del received_acks[window_start]
             window_start += 1
 
 
