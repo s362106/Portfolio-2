@@ -18,38 +18,49 @@ def check_ip(address):
     except ValueError:
         print(f"The IP address {address} is not valid")
 
-
-def run_server_saw(ip, port, reliable_mode, test):
+def run_server(ip, port, reliability_func, file_path):
     file_path = 'received_file.png'
     try:
         server_socket = socket(AF_INET, SOCK_DGRAM)
         server_socket.bind((ip, port))
+
         print(f"Server listening on {ip}:{port}")
 
-        received_data = RECV_STOP(server_socket, False)
-        with open(file_path, 'wb') as file:
-            file.write(received_data)
-
-    except OSError as e:
+    except Exception as e:
         print("Failed to bind. Error:", e)
         sys.exit()
 
+    print("Performing three-way handshake")
 
-def run_server_gbn(server_ip, server_port):
-    file_path = 'received_file.png'
-    try:
-        server_socket = socket(AF_INET, SOCK_DGRAM)
-        server_socket.bind((server_ip, server_port))
-        print(f"Server listening on {server_ip}:{server_port}")
+    if reliability_func == "stop_and_wait":
+        try:
+            received_data = RECV_STOP(server_socket, False)
+            with open(file_path, 'wb') as file:
+                file.write(received_data)
 
-        received_data = RECV_GBN(server_socket)
+        except OSError as e:
+            print("Failed to bind. Error:", e)
+            sys.exit()
 
-        with open(file_path, 'wb') as file:
-            file.write(received_data)
+    elif reliability_func == "GBN":
+        try:
+            received_data = RECV_GBN(server_socket)
 
-    except OSError as e:
-        print("Failed to bind. Error:", e)
-        sys.exit()
+            with open(file_path, 'wb') as file:
+                file.write(received_data)
+
+        except OSError as e:
+            print("Failed to bind. Error:", e)
+            sys.exit()
+
+    #elif reliability_func == "SR":
+        #server_sr(server_socket, file_path)
+
+    else:
+        print("Invalid reliability function specified")
+
+    print(f"File received and saved to {file_path}")
+    server_socket.close()
 
 
 def test_skip_ack(ip, port, reliable_mode):
