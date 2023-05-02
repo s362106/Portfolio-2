@@ -20,7 +20,7 @@ def check_ip(address):
     except ValueError:
         print(f"The IP address {address} is not valid")
 
-def run_server(ip, port, reliability_func, file_path):
+def run_server(ip, port, reliability_func):
     file_path = 'received_file.png'
     try:
         server_socket = socket(AF_INET, SOCK_DGRAM)
@@ -98,38 +98,23 @@ def test_skip_ack(ip, port, reliable_mode):
         sys.exit()
 
 
-def run_client_gbn(recv_ip, recv_port, window):
-    file_path = './Screenshot 2023-04-28 at 19.57.31.png'
+def run_client(ip, port, reliability_func, file_path):
     try:
         sender_sock = socket(AF_INET, SOCK_DGRAM)
-        addr = (recv_ip, recv_port)
+        addr = (ip, port)
         with open(file_path, 'rb') as f:
             file_data = f.read()
 
-        GBN(sender_sock, addr, file_data, window_size=15)
-        #GBN(sender_sock, addr, file_path, window)
+        if reliability_func == "SAW":
+            stop_and_wait(sender_sock, addr, file_data)
+        
+        elif reliability_func == "GBN":
+            GBN(sender_sock, addr, file_data, window_size=15)
 
     except IOError:
         print("Error opening file")
         sys.exit()
 
-
-def run_client_saw(server_ip, server_port):
-    file_path = './Screenshot 2023-04-28 at 19.57.31.png'
-
-    try:
-        sender_sock = socket(AF_INET, SOCK_DGRAM)
-
-        print("Handshake complete")
-        addr = (server_ip, server_port)
-        with open(file_path, 'rb') as file:
-            file_data = file.read()
-
-        stop_and_wait(sender_sock, addr, file_data)
-
-    except IOError:
-        print("Error opening file")
-        sys.exit()
 
 
 if __name__ == '__main__':
@@ -137,7 +122,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-s', '--server', action='store_true', help='Run in server mode')
     parser.add_argument('-p', '--port', type=int, default=12000, help='Choose the port number')
-    parser.add_argument('-f', '--file_name', type=str, default='Screenshot 2023-04-28 at 19.57.31.png', help='File name to store the data in')
+    parser.add_argument('-f', '--file_name', type=str, default='./Screenshot 2023-04-28 at 19.57.31.png', help='File name to store the data in')
     parser.add_argument('-r', '--reliability', type=str, default='SAW',
                         help='Choose reliability of the data transfer')
     parser.add_argument('-i', '--ip_address', type=str, default='127.0.0.1', help='Choose IP address')
@@ -148,11 +133,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.server:
-        run_server(args.ip_address, args.port, str(args.reliability).upper(), args.file_name)
+        run_server(args.ip_address, args.port, str(args.reliability).upper())
 
     elif args.client:
-        if str(args.reliability).upper() == 'gbn'.upper():
-            run_client_gbn(args.ip_address, args.port, args.window)
+        run_client(args.ip_address, args.port, str(args.reliability).upper(), args.file_name)
 
-        elif str(args.reliability).upper() == 'saw'.upper():
-            run_client_saw(args.ip_address, args.port)
