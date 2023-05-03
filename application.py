@@ -69,7 +69,7 @@ def run_server(ip, port, reliability_func, test):
         elif reliability_func == "GBN":
             received_data = RECV_GBN(server_socket, test)
         elif reliability_func == "SR":
-            received_data = recv_sr(server_socket, test, window_size=5)
+            received_data = RECV_SR(server_socket, test, window_size=5)
         else:
             print("Invalid reliability function specified")
 
@@ -106,7 +106,7 @@ def run_client(ip, port, reliability_func, file_path):
         elif reliability_func == "GBN":
             SEND_GBN(sender_sock, addr, file_data, window_size=5)
         elif reliability_func == "SR":
-            send_sr(sender_sock, addr, file_data, window_size=5)
+            SEND_SR(sender_sock, addr, file_data, window_size=5)
         else:
             print("Invalid reliability function specified")
             
