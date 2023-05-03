@@ -383,113 +383,137 @@ def SEND_GBN(send_sock, addr, data, window_size):
 
 
 # server
-def RECV_SR(sock, window_size):
-    seq_num = 1
-    window_start = 1
-    last_packet_sent = False
+def recv_sr(sock, skip_ack, window_size):
+    handle_handshake(sock)
 
-    packets_in_flight = {}
+    expected_seq_num = 1
     received_data = b''
-    # Receive data packets within the window size
-    for i in range(window_start, window_start + window_size):
-        # Receive data and address from server socket
-        data, addr = sock.recvfrom(1472)
-        # Split the header and message from the received data
-        header_msg = data[:12]
-        msg = data[12:]
+    base_seq_num = 1
+    unacked_packets = {}
 
-        seq, ack_nr, flags, win = parse_header(header_msg)
+    while True:
+        message, addr = sock.recvfrom(1472)
+        seq_num, ack_num, flags, win = parse_header(message[:12])
         syn, ack, fin = parse_flags(flags)
 
-        # If the sequence number matches the expected sequence number
-        if seq == seq_num:
-            # Add the packet to packets in flight and received data
-            packets_in_flight[seq_num], received_data = msg
-            seq_num += 1  # Update sequence number
+        if skip_ack:
+            skip_ack = False
+            print("Skipping first ACK msg")
+            continue
 
-        # If the FIN flag is set
-        if fin:
-            print("Received FIN msg with seq_num", seq_num)
-            send_ack(sock, seq_num, addr)  # Sends last ack
-            sock.close()
-            return received_data
+        if syn:
+            handle_handshake(sock)
 
-    while not last_packet_sent:
-        try:
-            sock.settimeout(0.5)
-            data, addr = sock.recvfrom(1472)
-            header_msg = data[:12]
-            seq, ack_nr, flags, win = parse_header(header_msg)
+        elif not ack and seq_num >= expected_seq_num and len(unacked_packets) < window_size:
+            if not fin and seq_num == expected_seq_num:
+                print("Received in-order with seq_num=", seq_num)
+                received_data += message[12:]
+                expected_seq_num += 1
 
-            if seq >= window_start and seq < window_start + window_size:
-                packets_in_flight[seq] = data[12:]
-                
-                while window_start in packets_in_flight:
-                    received_data = packets_in_flight[window_start]
-                    del packets_in_flight[window_start]
-                    window_start += 1
+                # Acknowledge the last received packet
+                send_ack(sock, seq_num, addr)
 
-                if fin:
-                    print("Received FIN msg with seq_num", seq_num)
-                    send_ack(sock, seq_num, addr)  # Sends last ack
-                    sock.close()
-                    return received_data
+                # Send acknowledgments for any other received but unacknowledged packets
+                while expected_seq_num in unacked_packets:
+                    received_data += unacked_packets[expected_seq_num]
+                    expected_seq_num += 1
+                    del unacked_packets[expected_seq_num - 1]
+                    send_ack(sock, expected_seq_num - 1, addr)
+            elif fin and not ack and seq_num == expected_seq_num:
+                print("Received FIN msg with seq_num", seq_num)
+                send_ack(sock, seq_num, addr)
+                sock.close()
+                return received_data
+            else:
+                print("Received out-of-order with seq_num=", seq_num)
+                # Send an acknowledgment for the last received in-order packet
+                send_ack(sock, expected_seq_num - 1, addr)
 
-                ack_nr = seq_num
-                flags = 4
-                ack_packet = create_packet(0, ack_nr, flags, 0, b'')
-                sock.sendto(ack_packet, addr)
+                # Add the out-of-order packet to the unacknowledged list
+                unacked_packets[seq_num] = message[12:]
 
-        except timeout:
-            print("Timeout occured. Resending packets from window start", window_start)
-            for seq, packet_data in packets_in_flight.items():
-                header = create_packet(seq, 0, 2, 0)
-                packet = header + packet_data
-                sock.sendto(packet, addr)
+                # Send acknowledgments for any other received but unacknowledged packets in order
+                while expected_seq_num in unacked_packets:
+                    received_data += unacked_packets[expected_seq_num]
+                    expected_seq_num += 1
+                    del unacked_packets[expected_seq_num - 1]
+                    send_ack(sock, expected_seq_num - 1, addr)
 
-    print("All packets received and written to file")
 
-# client
-def SEND_SR(send_sock, addr, data, window_size):
-    seq_num = 0
-    window_start = 0
-    packets = []
-    received_acks = {}
+def send_sr(send_sock, addr, data, window_size):
+    # Establish a connection with the server
+    initiate_handshake(send_sock, addr)
 
-    # Read the data from the file and split it into packets
-    while data:
-        packet_data = data[:1472]
-        data = data[1472:]
-        packet = create_packet(seq_num, 0, 0, 0, packet_data)
-        packets.append(packet)
-        seq_num += 1
-        
+    # Initialize variables
+    next_seq_num = 1
+    base_seq_num = 1
+    unacked_packets = {}
+    data_offset = 0
+    fin_sent = False
 
-    # Send the packets to the client in a sliding window
-    while packets or not all(received_acks.values()):
-        # Send new packets
-        for i in range(window_start, window_start + window_size):
-            if i < seq_num and i not in received_acks:
-                send_sock.sendto(packets[i], addr)
-                received_acks[i] = False
+    while not fin_sent:
+        # Send packets within the window
+        while next_seq_num < base_seq_num + window_size:
+            chunk_size = min(1460, len(data) - data_offset)
+            if chunk_size == 0:
+                if not unacked_packets:
+                    # All data has been sent and acknowledged, send FIN message
+                    fin_packet = create_packet(next_seq_num, 0, 2, 0, b'')
+                    send_sock.sendto(fin_packet, addr)
+                    print("FIN msg sent. Waiting for ACK...")
+                    fin_sent = True
+                    break
+                else:
+                    break
 
-        # Wait for acknowledgements
+            # Create packet and send it
+            chunk_data = data[data_offset:data_offset + chunk_size]
+            send_packet = create_packet(next_seq_num, 0, 0, 0, chunk_data)
+            send_sock.sendto(send_packet, addr)
+
+            # Add packet to unacked packets and update next_seq_num and data_offset
+            unacked_packets[next_seq_num] = (send_packet, time.monotonic())
+            next_seq_num += 1
+            data_offset += chunk_size
+
+        if not fin_sent:
+            # Check for ACKs
+            send_sock.settimeout(0.5)
+            try:
+                ack_packet, addr = send_sock.recvfrom(1472)
+                ack_seq_num, ack_num, ack_flags, ack_win = parse_header(ack_packet[:12])
+                ack_syn, ack, ack_fin = parse_flags(ack_flags)
+
+                if ack and ack_num >= base_seq_num:
+                    print("ACK msg: ack_num=", ack_num)
+                    # Update base_seq_num and remove acknowledged packets from unacked_packets
+                    base_seq_num = ack_num + 1
+                    for seq_num in list(unacked_packets.keys()):
+                        if seq_num < base_seq_num:
+                            unacked_packets.pop(seq_num)
+
+            except timeout:
+                print("Timeout occurred. Resending packets")
+                # Resend unacknowledged packets that have timed out
+                current_time = time.monotonic()
+                for seq_num, packet_info in unacked_packets.items():
+                    packet, timestamp = packet_info
+                    if current_time - timestamp >= 0.5:
+                        send_sock.sendto(packet, addr)
+                        unacked_packets[seq_num] = (packet, current_time)
+
+    # Wait for ACK for the FIN message
+    while True:
         send_sock.settimeout(0.5)
         try:
-            data, addr = send_sock.recvfrom(1472)
-            header_msg = data[:12]
-            seq, ack_nr, flags, win = parse_header(header_msg)
-            syn, ack, fin = parse_flags(flags)
+            ack_packet, addr = send_sock.recvfrom(1472)
+            ack_seq_num, ack_num, ack_flags, ack_win = parse_header(ack_packet[:12])
+            ack_syn, ack, ack_fin = parse_flags(ack_flags)
 
-            if ack_nr in received_acks:
-                received_acks[ack_nr] = True
-        except TypeError:
-            # Timeout occurred, resend unacknowledged packets
-            for i in range(window_start, window_start + window_size):
-                if i in received_acks and not received_acks[i]:
-                    send_sock.sendto(packets[i], addr)
+            if ack and ack_num == next_seq_num:
+                print("ACK for FIN msg received. Exiting...")
+                break
 
-        # Slide the window
-        while window_start < seq_num and received_acks.get(window_start, False):
-            del received_acks[window_start]
-            window_start += 1
+        except timeout:
+            print("Timeout occurred while waiting for ACK for FIN msg. Exiting...")
+            break
