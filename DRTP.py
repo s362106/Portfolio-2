@@ -310,23 +310,39 @@ def RECV_STOP(sock, skip_ack):
 
 # client
 def SEND_SAW(sock, addr, data):
-    # If handshake has not yet been completed, establish connection
+    """
+    Sends data using the Selective Acknowledgment Protocol
+
+    Arguments:
+        sock (socket): Socket object to use for sending and receiving data
+        addr (tuple): IP address and port number of the server/receiver
+        data (bytes): File data to be sent in bytes
+
+    Returns:
+        None
+    """
+
+    # Initiate three-way handshake with the receiver
     initiate_handshake(sock, addr)
 
+    # Set initial sequence number to 1
     sequence_num = 1
+    # Loop until there is no data to send
     while True:
+        # If no more data, close the connection and exit loop
         if not data:
             close_conn(sock, addr, sequence_num)
             break
 
-        # Send data packet with current sequence number
+        # Send the next packet of data (upt to 1460bytes) with the current sequence number
         send(sock, data[:1460], sequence_num, addr)
+        # Remove the sent data from the buffer
         data = data[1460:]
 
         # Wait for ACK message from the receiver
         received_ack = False
         while not received_ack:
-            # Set a timeout of 0.5 seconds for the socket for receiving ACK message
+            # Set a timeout of 0.5 seconds for receiving ACK message
             sock.settimeout(0.5)
 
             try:
@@ -335,17 +351,18 @@ def SEND_SAW(sock, addr, data):
                 seq_num, ack_num, flags, win = parse_header(header_from_msg)  # Parse the header fields
                 syn, ack, fin = parse_flags(flags)  # Parse the flags
 
-                # If received ACK message is valid, update global sequence number and set received_ack to True
+                # If received ACK message is valid, update sequence number and set received_ack to True
                 if ack and ack_num == sequence_num:
                     print(f"ACK msg: ack_num={ack_num}, flags={flags}")
                     sequence_num += 1
                     received_ack = True
 
-                # Else if received duplicate ACK message
+                # If the acknowledgement message is a duplicate, resend the previous packet with the previous sequence number
                 elif ack and ack_num == sequence_num - 1:
                     print("Received duplicate ACK msg with ack_num", ack_num)
                     send(sock, data[:1460], sequence_num - 1, addr)
 
+            # If timeout occurs while waiting for ACK message, resend the pakcet with the current sequence number
             except timeout:
                 print(f"Timeout occurred. Resending packet with seq_num={sequence_num}, flags=0")
                 send(sock, data[:1460], sequence_num, addr)
@@ -353,33 +370,46 @@ def SEND_SAW(sock, addr, data):
 
 # server
 def RECV_GBN(sock, skip_ack):
+    """
+    Receive data using Go back N protocol
+
+    Arguments:
+        sock (socket): Socket object to receive data with
+        skip_ack (bool): Whether to skip sending ACK message or not for test case
+
+    Returns:
+        Concatenated received data in bytes
+    """
+    # Perform three-way handshake
     handle_handshake(sock)
 
+    # Initialize variables
     expected_seq_num = 1
     received_data = b''
+    # Continuously receive packets and send back ACK messages if received packets are in-order
     while True:
         message, addr = sock.recvfrom(1472)
         seq_num, ack_num, flags, win = parse_header(message[:12])
         syn, ack, fin = parse_flags(flags)
 
+        # Runs skip_ack test case
         if skip_ack:
             skip_ack = False
             print("Skipping first ACK msg")
             continue
 
+        # If a new SYN message received, redo three-way handshake
         if syn:
             handle_handshake(sock)
-            # send_ack(sock, ack_num=seq_num+1, seq_num=expected_seq_num)
 
+        # If received packet has correct sequence number
         elif not ack and seq_num >= expected_seq_num:
             if not fin and seq_num == expected_seq_num:
                 print("Received in-order with seq_num=", seq_num)
                 received_data += message[12:]
                 expected_seq_num += 1
-
-                # Acknowledge the last received packet
                 send_ack(sock, seq_num, addr)
-                # send_ack(sock, ack_num=seq_num+1, seq_num=expected_seq_num)
+
             elif fin and not ack and seq_num == expected_seq_num:
                 print("Received FIN msg with seq_num", seq_num)
                 send_ack(sock, seq_num, addr)
@@ -387,12 +417,23 @@ def RECV_GBN(sock, skip_ack):
                 return received_data
             else:
                 print("Received out-of-order with seq_num=", seq_num)
-                # Discard out-of-order packets
+                # Discarding out-of-order packets
                 pass
 
 
 # client
 def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
+    """
+    Sends data using the Go-Back-N protocol
+
+    Arguments:
+        sock (socket): Socket object to use for sending and receiving data
+        addr (tuple): IP address and port number of the server/receiver
+        data (bytes): File data to be sent in bytes
+        window_size (int): The window size
+        skip_seq_num (bool): Whether to skip a sequence number or not for test cases
+    """
+
     initiate_handshake(send_sock, addr)
 
     next_seq_num = 1

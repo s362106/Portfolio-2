@@ -127,7 +127,7 @@ if __name__ == '__main__':
             sys.exit()
 
     elif args.client:
-        if str(args.test).upper() == 'LOSS':
+        if args.test == 'LOSS':
             run_client(args.ip_address, args.port, args.reliability, args.file_name, args.window, True)
 
         elif not args.test:
