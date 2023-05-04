@@ -5,11 +5,6 @@ import argparse
 import sys
 from DRTP import *
 
-# Hai
-
-BUFFER_SIZE = 1472
-HEADER_SIZE = 12
-
 
 # Define the simplified TCP header structure
 
@@ -23,20 +18,20 @@ def check_ip(ip_address):
     # return dotted decimal notation 
     return ip_address
 
+
 def check_port(port_number):
     try:
         # convert argument to an integer data type
-        port_number = int(port_number)              
-    except ValueError:       
+        port_number = int(port_number)
+    except ValueError:
         # raise error if not integer                       
         raise argparse.ArgumentTypeError('Port must be an integer')
-   
+
     # raise error if not in range
-    if not 1024 <= port_number <= 65535:            
+    if not 1024 <= port_number <= 65535:
         raise argparse.ArgumentTypeError('Port must be in the range [1024, 65535]')
     # return int
     return port_number
-
 
 
 def run_server(ip, port, reliability_func, test, window_size):
@@ -61,11 +56,12 @@ def run_server(ip, port, reliability_func, test, window_size):
             received_data = RECV_SR(server_socket, test, window_size)
         else:
             print("Invalid reliability function specified")
+            sys.exit()
 
     except KeyboardInterrupt:
         server_socket.close()
         sys.exit()
-    
+
     try:
         with open(file_path, 'wb') as file:
             file.write(received_data)
@@ -78,7 +74,7 @@ def run_server(ip, port, reliability_func, test, window_size):
     server_socket.close()
 
 
-def run_client(ip, port, reliability_func, file_path, window_size):
+def run_client(ip, port, reliability_func, file_path, window_size, skip_seq_num):
     try:
         sender_sock = socket(AF_INET, SOCK_DGRAM)
         addr = (ip, port)
@@ -93,16 +89,15 @@ def run_client(ip, port, reliability_func, file_path, window_size):
         if reliability_func == "SAW":
             SEND_SAW(sender_sock, addr, file_data)
         elif reliability_func == "GBN":
-            SEND_GBN(sender_sock, addr, file_data, window_size)
+            SEND_GBN(sender_sock, addr, file_data, window_size, skip_seq_num)
         elif reliability_func == "SR":
-            SEND_SR(sender_sock, addr, file_data, window_size)
+            SEND_SR(sender_sock, addr, file_data, window_size, skip_seq_num)
         else:
             print("Invalid reliability function specified")
-            
+
     except KeyboardInterrupt:
         sender_sock.close()
         sys.exit()
-
 
 
 if __name__ == '__main__':
@@ -128,16 +123,15 @@ if __name__ == '__main__':
             run_server(args.ip_address, args.port, args.reliability, False, args.window)
 
         else:
-            print("Type in 'skip_ack' as argument to test skipping ack msg")
+            print("Type in skip_ack as argument to test skipping ack msg")
             sys.exit()
 
     elif args.client:
-        if args.test == 'LOSS':
-           print("Loss ikke fikset enda")
+        if str(args.test).upper() == 'LOSS':
+            run_client(args.ip_address, args.port, args.reliability, args.file_name, args.window, True)
 
         elif not args.test:
-            run_client(args.ip_address, args.port, args.reliability, args.file_name, args.window)
-
+            run_client(args.ip_address, args.port, args.reliability, args.file_name, args.window, False)
         else:
             print("Type in 'loss' as argument to test skipping sequence number")
             sys.exit()

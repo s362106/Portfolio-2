@@ -419,9 +419,9 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
             if skip_seq_num and next_seq_num == 5:
                 skip_seq_num = False
                 print("Skipping seq_num =", next_seq_num)
+                unacked_packets[next_seq_num] = chunk_data
                 next_seq_num += 1
                 data_offset += chunk_size
-                unacked_packets[5] = chunk_data
                 continue
 
             send(send_sock, chunk_data, next_seq_num, addr)
@@ -527,7 +527,7 @@ def RECV_SR(sock, skip_ack, window_size):
                     send_ack(sock, expected_seq_num - 1, addr)
 
 
-def SEND_SR(send_sock, addr, data, window_size):
+def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
     initiate_handshake(send_sock, addr)
 
     # Initialise variables
@@ -554,6 +554,15 @@ def SEND_SR(send_sock, addr, data, window_size):
 
             # Create packet and send it
             chunk_data = data[data_offset:data_offset + chunk_size]
+            if skip_seq_num and next_seq_num == 5:
+                skip_seq_num = False
+                print("Skipping seq_num =", next_seq_num)
+                data_packet = create_packet(next_seq_num, 0, 0, 0, chunk_data)
+                unacked_packets[5] = (data_packet, time.monotonic())
+                next_seq_num += 1
+                data_offset += chunk_size
+
+                continue
             send_packet = create_packet(next_seq_num, 0, 0, 0, chunk_data)
             send_sock.sendto(send_packet, addr)
 
