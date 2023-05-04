@@ -92,7 +92,7 @@ def send_ack(sock, ack_num, addr):
             None
         """
 
-    ack_msg = create_packet(0, ack_num, 4, 64, b'')     # flags = 0 1 0 0 = 4 --> ACK flag value
+    ack_msg = create_packet(0, ack_num, 4, 64, b'')  # flags = 0 1 0 0 = 4 --> ACK flag value
     sock.sendto(ack_msg, addr)
 
 
@@ -203,7 +203,7 @@ def close_conn(sock, addr, next_seq_num):
         None
     """
 
-    flags = 2   # 0 0 1 0 = FIN flag value
+    flags = 2  # 0 0 1 0 = FIN flag value
     # Create packet with current sequence number and to destination address
     fin_msg = create_packet(next_seq_num, 0, flags, 0, b'')
     sock.sendto(fin_msg, addr)
@@ -234,7 +234,7 @@ def close_conn(sock, addr, next_seq_num):
             # If ACK flag is not set and with lower ack_num
             elif not ack and ack_num < next_seq_num:
                 print("Received duplicate ACK msg with ack_num", ack_num)
-                flags = 2   # Set the flag value to FIN
+                flags = 2  # Set the flag value to FIN
                 # Create a new packet and resend to the destination address
                 fin_msg = create_packet(next_seq_num, 0, flags, 0, b'')
                 sock.sendto(fin_msg, addr)
@@ -250,51 +250,63 @@ def RECV_STOP(sock, skip_ack):
     Receives data packets sent by the sender and sends ACK packets to confirm receipt of each packet
 
     Arguments:
-        sock (socket): Receiver socket tor eceive packets
+        sock (socket): Receiver socket for receiving packets from server
         skip_ack (bool): Whether to skip the first ACK message (for test case)
 
     Returns:
         bytes: Concatenated data from the received packets
     """
 
+    # Perform handshake with sender
     handle_handshake(sock)
+    # Sequence number of the next expected packet
     expected_seq_num = 1
+    # Concatenated data of all received packets
     received_data = b''
 
     while True:
+        # Receive packet from sender
         msg, addr = sock.recvfrom(1472)
 
         header_from_msg = msg[:12]
         seq_num, ack_num, flags, win = parse_header(header_from_msg)
         syn, ack, fin = parse_flags(flags)
 
+        # If flag is True, skip the first ACK message
         if skip_ack:
             print("Skipping first ACK msg")
             skip_ack = False
             continue
 
+        # If received packet has correct sequence number
         if not fin and not syn and not ack and seq_num == expected_seq_num:
             print(f"Received packet with seq_num", seq_num)
+            # Extract payload from the packet
             app_data = msg[12:]
+            # Send an ACK message with received seq_num
             send_ack(sock, expected_seq_num, addr)
             print("Sent ACK msg with ack_num", expected_seq_num)
+            # Increment the expected sequence number
             expected_seq_num += 1
             received_data += app_data
 
+        # If received packet does not have correct sequence number
         elif not fin and not syn and not ack and seq_num != expected_seq_num:
+            # Send a duplicate ACK message to the sender, if received a duplicate packet
             if seq_num == expected_seq_num - 1:
                 print(f"Received duplicate packet with seq_num", seq_num)
                 send_ack(sock, expected_seq_num - 1, addr)
 
+            # Else ignore received packet
             else:
                 print("Received out-of-order packet. Ignoring")
-
-        if fin and not ack and not syn and seq_num == expected_seq_num:
+        # If FIN flag is set, send back an ACK message, close the socket, and return received data
+        elif fin and not ack and not syn and seq_num == expected_seq_num:
             print("FIN msg received with seq_num", seq_num)
-            flags = 4
             send_ack(sock, expected_seq_num, addr)
             sock.close()
             return received_data
+
 
 # client
 def SEND_SAW(sock, addr, data):
@@ -377,6 +389,7 @@ def RECV_GBN(sock, skip_ack):
                 print("Received out-of-order with seq_num=", seq_num)
                 # Discard out-of-order packets
                 pass
+
 
 # client
 def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
