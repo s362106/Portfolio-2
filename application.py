@@ -34,7 +34,7 @@ def check_port(port_number):
     return port_number
 
 
-def run_server(ip, port, reliability_func, test, window_size):
+def run_server(ip, port, reliability_func, window_size, test):
     file_path = 'received_file.png'
     received_data = b''
     try:
@@ -74,7 +74,7 @@ def run_server(ip, port, reliability_func, test, window_size):
     server_socket.close()
 
 
-def run_client(ip, port, reliability_func, file_path, window_size, skip_seq_num):
+def run_client(ip, port, reliability_func, file_path, window_size, test):
     try:
         sender_sock = socket(AF_INET, SOCK_DGRAM)
         addr = (ip, port)
@@ -89,9 +89,9 @@ def run_client(ip, port, reliability_func, file_path, window_size, skip_seq_num)
         if reliability_func == "SAW":
             SEND_SAW(sender_sock, addr, file_data)
         elif reliability_func == "GBN":
-            SEND_GBN(sender_sock, addr, file_data, window_size, skip_seq_num)
+            SEND_GBN(sender_sock, addr, file_data, window_size, test)
         elif reliability_func == "SR":
-            SEND_SR(sender_sock, addr, file_data, window_size, skip_seq_num)
+            SEND_SR(sender_sock, addr, file_data, window_size, test)
         else:
             print("Invalid reliability function specified")
 
@@ -117,10 +117,10 @@ if __name__ == '__main__':
     if args.server:
 
         if args.test == 'SKIP_ACK':
-            run_server(args.ip_address, args.port, args.reliability, True, args.window)
+            run_server(args.ip_address, args.port, args.reliability, args.window, True)
 
         elif not args.test:
-            run_server(args.ip_address, args.port, args.reliability, False, args.window)
+            run_server(args.ip_address, args.port, args.reliability, args.window, False)
 
         else:
             print("Type in skip_ack as argument to test skipping ack msg")
