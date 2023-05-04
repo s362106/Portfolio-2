@@ -313,7 +313,7 @@ def RECV_GBN(sock, skip_ack):
                 pass
 
 # client
-def SEND_GBN(send_sock, addr, data, window_size):
+def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
     initiate_handshake(send_sock, addr)
 
     next_seq_num = 1
@@ -337,6 +337,14 @@ def SEND_GBN(send_sock, addr, data, window_size):
                     break
 
             chunk_data = data[data_offset:data_offset + chunk_size]
+            if skip_seq_num and next_seq_num == 5:
+                skip_seq_num = False
+                print("Skipping seq_num =", next_seq_num)
+                next_seq_num += 1
+                data_offset += chunk_size
+                unacked_packets[5] = chunk_data
+                continue
+
             send(send_sock, chunk_data, next_seq_num, addr)
             unacked_packets[next_seq_num] = chunk_data
             next_seq_num += 1
