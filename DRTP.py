@@ -13,17 +13,17 @@ handshake_complete = False
 
 def create_packet(seq_num, ack_num, flags, window_size, data):
     """
-        Creates a packet from the given parameters.
+        Creates a packet from the given parameters
 
         Args:
-            seq_num (int): The sequence number of the packet.
-            ack_num (int): The acknowledgement number of the packet.
-            flags (int): An integer representing the packet's flags.
-            window_size (int): The window size of the packet.
-            data (bytes): The data to be included in the packet.
+            seq_num (int): The sequence number of the packet
+            ack_num (int): The acknowledgement number of the packet
+            flags (int): An integer representing the packet's flags
+            window_size (int): The window size of the packet
+            data (bytes): The data to be included in the packet
 
         Returns:
-            bytes: The packet created from the given parameters.
+            bytes: The packet created from the given parameters
         """
     header = pack(header_format, seq_num, ack_num, flags, window_size)
     packet = header + data
@@ -32,14 +32,14 @@ def create_packet(seq_num, ack_num, flags, window_size, data):
 
 def parse_header(header):
     """
-       Parses the given header bytes and returns the values as a tuple.
+       Parses the given header bytes and returns the values as a tuple
 
        Args:
-           header (bytes): The header bytes to be parsed.
+           header (bytes): The header bytes to be parsed
 
        Returns:
            tuple[int, int, int, int]: A tuple containing the sequence number, acknowledgement number, flags,
-           and window size parsed from the header bytes.
+           and window size parsed from the header bytes
        """
     header_from_msg = unpack(header_format, header)
     return header_from_msg
@@ -47,13 +47,13 @@ def parse_header(header):
 
 def parse_flags(flags):
     """
-        Parses the given flags integer and returns a tuple containing the SYN, ACK, and FIN flags.
+        Parses the given flags integer and returns a tuple containing the SYN, ACK, and FIN flags
 
         Args:
-            flags (int): An integer representing the flags of the packet.
+            flags (int): An integer representing the flags of the packet
 
         Returns:
-            tuple[int, int, int]: A tuple containing the SYN, ACK, and FIN flags.
+            tuple: A tuple containing the SYN, ACK, and FIN flags
         """
     syn = (flags >> 3) & 1
     ack = (flags >> 2) & 1
@@ -64,16 +64,16 @@ def parse_flags(flags):
 
 def send(sock, data, seq_num, addr):
     """
-        Sends a packet with the given data, sequence number, and address using the provided socket.
+        Sends a packet with the given data, sequence number, and address using the provided socket
 
         Args:
-            sock (socket): The socket to use for sending the packet.
-            data (bytes): The data to include as payload in the packet.
-            seq_num (int): The sequence number of the packet.
-            addr (tuple): A tuple representing the address to send the packet to.
+            sock (socket): The socket to use for sending the packet
+            data (bytes): The data to include as payload in the packet
+            seq_num (int): The sequence number of the packet
+            addr (tuple): A tuple representing the address to send the packet to
 
         Returns:
-            None.
+            None
         """
     packet = create_packet(seq_num, 0, 0, 0, data)
     sock.sendto(packet, addr)
@@ -81,15 +81,15 @@ def send(sock, data, seq_num, addr):
 
 def send_ack(sock, ack_num, addr):
     """
-        Sends an acknowledgement packet with the given acknowledgement number and address using the provided socket.
+        Sends an acknowledgement packet with the given acknowledgement number and address using the provided socket
 
         Args:
-            sock (socket): The socket to use for sending the acknowledgement packet.
-            ack_num (int): The acknowledgement number to include in the packet.
-            addr (tuple): A tuple representing the address to send the acknowledgement packet to.
+            sock (socket): The socket to use for sending the acknowledgement packet
+            ack_num (int): The acknowledgement number to include in the packet
+            addr (tuple): A tuple representing the address to send the acknowledgement packet to
 
         Returns:
-            None.
+            None
         """
 
     ack_msg = create_packet(0, ack_num, 4, 64, b'')     # flags = 0 1 0 0 = 4 --> ACK flag value
@@ -97,6 +97,17 @@ def send_ack(sock, ack_num, addr):
 
 
 def initiate_handshake(sock, addr):
+    """
+    Initiate the three-way handshake to establish connection with server/receiver host
+
+    Arguments:
+        sock (socket): Client/sender socket to be used for communication with the server/receiver host
+        addr (tuple): IP address and port number of the server
+
+    Returns:
+        None
+    """
+
     global handshake_complete
 
     # If handshake has not yet been completed, establish connection
@@ -134,56 +145,100 @@ def initiate_handshake(sock, addr):
 
 
 def handle_handshake(sock):
+    """
+    Perform the three-way handshake to establish connection with the sender
+
+    Arguments:
+        sock (socket): The receivers socket for communication with the sender
+
+    Returns:
+        None
+    """
+
+    # Import global variable
     global handshake_complete
+
+    # If the handshake is not completed yet
     if not handshake_complete:
 
+        # Keep looping until the handshake is complete
         while True:
             try:
+                # Receive SYN packet from sender
                 syn_packet, addr = sock.recvfrom(1472)
+                # Extract the header from the packet
                 header = syn_packet[:12]
+                # Parse the flags from the header
                 syn, ack, fin = parse_flags(parse_header(header)[2])
 
+                # If SYN flag is set and no other flags are set
                 if syn and not ack and not fin:
                     print("Received SYN msg")
+                    # Create a SYN-ACK packet and send back to sender
                     syn_ack_msg = create_packet(0, 0, 12, 64, b'')
                     sock.sendto(syn_ack_msg, addr)
 
+                # If ACK flag is set and no other flags are set
                 elif not syn and ack and not fin:
                     print("Received final ACK msg")
+                    # Set handshake to True and exit loop
                     handshake_complete = True
                     break
-
+            # If any error occurs, print the error and exit the program
             except Exception as e:
                 print("Error:", e)
                 sys.exit()
 
 
 def close_conn(sock, addr, next_seq_num):
-    flags = 2
+    """
+    Closes the connection between the client and server
+
+    Arguments:
+        sock (socket): Client/sender socket to close the connection
+        addr (tuple): IP address and port number of the server
+        next_seq_num (int): Current sequence number to continue from
+
+    Returns:
+        None
+    """
+
+    flags = 2   # 0 0 1 0 = FIN flag value
+    # Create packet with current sequence number and to destination address
     fin_msg = create_packet(next_seq_num, 0, flags, 0, b'')
     sock.sendto(fin_msg, addr)
 
     fin_ack_received = False
     while not fin_ack_received:
+        # Set timeout of 0.5 seconds for the socket
         sock.settimeout(0.5)
         try:
+            # Receive message from the destination address
             fin_ack_msg, addr = sock.recvfrom(1472)
+            # Extract the header from the message
             header_from_msg = fin_ack_msg[:12]
+            # Parse the header
             seq_num, ack_num, flags, win = parse_header(header_from_msg)
+            # Parse the flags
             syn, ack, fin = parse_flags(flags)
 
-            if ack and ack_num == next_seq_num:
+            # If only ACK flag is set with the correct ack_num
+            if ack and not syn and not fin and ack_num == next_seq_num:
                 print("Received ACK msg for FIN msg with ack_num", ack_num)
+                # Increment sequence number, close the socket and exit loop
                 next_seq_num += 1
                 sock.close()
                 fin_ack_received = True
                 return
 
+            # If ACK flag is not set and with lower ack_num
             elif not ack and ack_num < next_seq_num:
                 print("Received duplicate ACK msg with ack_num", ack_num)
-                flags = 2
+                flags = 2   # Set the flag value to FIN
+                # Create a new packet and resend to the destination address
                 fin_msg = create_packet(next_seq_num, 0, flags, 0, b'')
                 sock.sendto(fin_msg, addr)
+        # If a timeout occurs, resend the FIN packet
         except timeout:
             print(f"Timeout occurred. Resending FIN msg")
             sock.sendto(fin_msg, addr)
@@ -191,6 +246,17 @@ def close_conn(sock, addr, next_seq_num):
 
 # server
 def RECV_STOP(sock, skip_ack):
+    """
+    Receives data packets sent by the sender and sends ACK packets to confirm receipt of each packet
+
+    Arguments:
+        sock (socket): Receiver socket tor eceive packets
+        skip_ack (bool): Whether to skip the first ACK message (for test case)
+
+    Returns:
+        bytes: Concatenated data from the received packets
+    """
+
     handle_handshake(sock)
     expected_seq_num = 1
     received_data = b''
