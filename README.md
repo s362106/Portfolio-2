@@ -8,39 +8,39 @@ There are two programs in this Portfolio. The first program, DRTP.py, is a custo
 2. Then open your terminal, go to the directory where *application.py* and *DRTP.py* are located.
 
 You can run *application.py* in server/receiver mode with the default options with the following command:
-    - ```python3 application.py -s```
+ - ```python3 application.py -s```
 
 *Note that by default, **application.py** uses the Stop_And_Wait protocol to send and receive the file.*
 
 To operate *application.py* in client/sender mode, it can be invoked as follows:
-    - ```python3 application.py -c -i <server_ip> -ip <server_port>```
+ - ```python3 application.py -c -i <server_ip> -ip <server_port>```
 
 ### Optional arguments
 
 Below are the optional arguments you can use when running the program:
 
-- *-s, --server*
+- **-s, --server**
     - Run in server/receiver mode
 
-- *-c, --client*
+- **-c, --client**
     - Run in client/sender mode
 
-- *-i, --ip_address*
+- **-i, --ip_address**
     - IP address to use when running the program (default: 127.0.0.1)
 
-- *-p, --port*
+- **-p, --port**
     - Port number of the server (default: 12000)
 
-- *-f, --file_name*
+- **-f, --file_name**
     - Name of the file to be sent
 
-- *-r, --reliability*
+- **-r, --reliability**
     - Choose which reliable protocol to use when sending and receiving the file (default: Stop_And_Wait)
 
-- *-t, --test*
+- **-t, --test**
     - Test protocol for skip_ack(in server mode) or loss(in client mode)
 
-- *-w, --window*
+- **-w, --window**
     - Window size for the Go_Back_N and Selective Repeate protocols (default: 5)
 
 ## How to generate data
