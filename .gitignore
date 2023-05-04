@@ -33,3 +33,6 @@ Temporary Items
 .idea
 
 __pycache__
+
+# Ignore VSCode files
+.vscode
