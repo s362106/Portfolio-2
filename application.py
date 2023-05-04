@@ -37,20 +37,9 @@ def check_port(port_number):
     # return int
     return port_number
 
-def check_test(test):
-    if test == 'skip_ack':
-        # return int
-        return True
-    elif test == 'loss':
-        # return int
-        return True
-    elif test == None:         
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Test must be either "skip_ack" (server) or "loss" (client)')
 
 
-def run_server(ip, port, reliability_func, test):
+def run_server(ip, port, reliability_func, test, window_size):
     file_path = 'received_file.png'
     received_data = b''
     try:
@@ -69,7 +58,7 @@ def run_server(ip, port, reliability_func, test):
         elif reliability_func == "GBN":
             received_data = RECV_GBN(server_socket, test)
         elif reliability_func == "SR":
-            received_data = recv_sr(server_socket, test, window_size=5)
+            received_data = RECV_SR(server_socket, test, window_size)
         else:
             print("Invalid reliability function specified")
 
@@ -89,7 +78,7 @@ def run_server(ip, port, reliability_func, test):
     server_socket.close()
 
 
-def run_client(ip, port, reliability_func, file_path):
+def run_client(ip, port, reliability_func, file_path, window_size):
     try:
         sender_sock = socket(AF_INET, SOCK_DGRAM)
         addr = (ip, port)
@@ -104,9 +93,9 @@ def run_client(ip, port, reliability_func, file_path):
         if reliability_func == "SAW":
             SEND_SAW(sender_sock, addr, file_data)
         elif reliability_func == "GBN":
-            SEND_GBN(sender_sock, addr, file_data, window_size=5)
+            SEND_GBN(sender_sock, addr, file_data, window_size)
         elif reliability_func == "SR":
-            send_sr(sender_sock, addr, file_data, window_size=5)
+            SEND_SR(sender_sock, addr, file_data, window_size)
         else:
             print("Invalid reliability function specified")
             
@@ -124,30 +113,31 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--ip_address', type=check_ip, default='127.0.0.1', help='Choose IP address')
     parser.add_argument('-p', '--port', type=check_port, default=12000, help='Choose the port number')
     parser.add_argument('-f', '--file_name', type=str, default='./Screenshot 2023-04-28 at 19.57.31.png', help='File name to store the data in')
-    parser.add_argument('-r', '--reliability', choices=['SAW', 'GBN', 'SR'], default='SAW', type=str.upper, help='Choose reliability of the data transfer')
-    parser.add_argument('-t', '--test', type=str, default=None, help='Choose which artificial test case')
+    parser.add_argument('-r', '--reliability', type=str.upper, choices=['SAW', 'GBN', 'SR'], default='SAW', help='Choose reliability of the data transfer')
+    parser.add_argument('-t', '--test', type=str.upper, default=False, help='Choose which artificial test case')
     parser.add_argument('-w', '--window', type=int, default=5, help='Select window size (only in GBN & SR)')
 
     args = parser.parse_args()
 
     if args.server:
 
-        if str(args.test).upper() == 'SKIP_ACK':
-            run_server(args.ip_address, args.port, args.reliability, True)
+        if args.test == 'SKIP_ACK':
+            run_server(args.ip_address, args.port, args.reliability, True, args.window)
 
         elif not args.test:
-            run_server(args.ip_address, args.port, args.reliability, False)
+            run_server(args.ip_address, args.port, args.reliability, False, args.window)
 
         else:
-            print("Type in skip_ack to as argument to test skipping ack msg")
+            print("Type in 'skip_ack' as argument to test skipping ack msg")
             sys.exit()
 
     elif args.client:
-        if str(args.test).upper() == 'LOSS':
+        if args.test == 'LOSS':
            print("Loss ikke fikset enda")
 
         elif not args.test:
-            run_client(args.ip_address, args.port, args.reliability, args.file_name)
+            run_client(args.ip_address, args.port, args.reliability, args.file_name, args.window)
+
         else:
             print("Type in 'loss' as argument to test skipping sequence number")
             sys.exit()
