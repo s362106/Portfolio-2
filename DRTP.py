@@ -430,7 +430,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
         sock (socket): Socket object to use for sending and receiving data
         addr (tuple): IP address and port number of the server/receiver
         data (bytes): File data to be sent in bytes
-        window_size (int): The window size
+        window_size (int): The size of the sliding window/the number of packets in flight
         skip_seq_num (bool): Whether to skip a sequence number or not for test cases
     """
 
@@ -512,6 +512,18 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
 
 # server
 def RECV_SR(sock, skip_ack, window_size):
+    """
+    Receives data from the sender using Selective Repeat protocol
+
+    Arguments:
+        sock (socket): Socket object to receive data with
+        skip_ack (bool): Whether to skip sending ACK message or not for test case
+        window_size (int): The size of the sliding window/the number of packets in flight
+
+    Returns:
+        A table of all of the received data in bytes, it is used application.py to transfer all the data to a file
+    """
+
     handle_handshake(sock)
 
     expected_seq_num = 1  # expected sequence number of the next in-order packet
@@ -569,6 +581,18 @@ def RECV_SR(sock, skip_ack, window_size):
 
 
 def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
+    """
+    Sends data to the receiver using the Selective Repeat protocol
+
+    Arguments:
+        send_sock (socket): Socket object to use for sending and receiving data
+        addr (tuple): IP address and port number of the server/receiver
+        data (bytes): File data to be sent in bytes
+        window_size (int): The size of the sliding window/the number of packets in flight
+        skip_seq_num (bool): Whether to skip a sequence number or not for test cases
+
+    """
+
     initiate_handshake(send_sock, addr)
 
     # Initialise variables
