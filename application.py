@@ -71,7 +71,6 @@ def run_server(ip, port, reliability_func, window_size, test):
         sys.exit()
 
     print(f"File received and saved to {file_path}")
-    server_socket.close()
 
 
 def run_client(ip, port, reliability_func, file_path, window_size, test):
@@ -86,6 +85,7 @@ def run_client(ip, port, reliability_func, file_path, window_size, test):
         sys.exit()
 
     try:
+        start_time = time.monotonic()
         if reliability_func == "SAW":
             SEND_SAW(sender_sock, addr, file_data)
         elif reliability_func == "GBN":
@@ -95,6 +95,9 @@ def run_client(ip, port, reliability_func, file_path, window_size, test):
         else:
             print("Invalid reliability function specified")
 
+        elapsed_time = time.monotonic() - start_time
+        bandwidth = (len(file_data) * 8 / elapsed_time) / (1024**2)
+        print(f"\nBandwidth:{bandwidth:.2f}")
     except KeyboardInterrupt:
         sender_sock.close()
         sys.exit()
