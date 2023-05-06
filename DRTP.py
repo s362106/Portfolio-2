@@ -433,18 +433,23 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
         window_size (int): The size of the sliding window/the number of packets in flight
         skip_seq_num (bool): Whether to skip a sequence number or not for test cases
     """
-
+    # Initiate three-way handshake
     initiate_handshake(send_sock, addr)
 
+    # Initialize variables
     next_seq_num = 1
     base_seq_num = 1
     unacked_packets = {}
     data_offset = 0
     fin_sent = False
-
+    # Loop until FIN message is sent
     while not fin_sent:
+        # Send packets while the number of unacknowledged packets is less than the window size
         while next_seq_num < base_seq_num + window_size:
+            # Calculate the size of the next chunk of data to send
+            # It is the minimum of 1460 bytes and the remaining data to be sent
             chunk_size = min(1460, len(data) - data_offset)
+            # If no more data and no more unacknowledged packets, send FIN message
             if chunk_size == 0:
                 if not unacked_packets:
                     # All sent packets have been acknowledged, send FIN message
@@ -453,10 +458,14 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                     print("FIN msg sent. Waiting for ACK...")
                     fin_sent = True
                     break
+                #  If there are unacknowledged packets, break out of the inner loop to wait for acknowledgements
                 else:
                     break
 
+            # This line slices the next chunk of data to be sent from data
             chunk_data = data[data_offset:data_offset + chunk_size]
+            # If skip_seq_num is True and the next sequence number is 5, skip sending the packet and continue to the
+            # next iteration of the loop
             if skip_seq_num and next_seq_num == 5:
                 skip_seq_num = False
                 print("Skipping seq_num =", next_seq_num)
@@ -464,29 +473,33 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                 next_seq_num += 1
                 data_offset += chunk_size
                 continue
-
+            # Send the packet, add its data to unacked_packets and increment sequence number and data_offset
             send(send_sock, chunk_data, next_seq_num, addr)
             unacked_packets[next_seq_num] = chunk_data
             next_seq_num += 1
             data_offset += chunk_size
-
+        # If FIN message not sent, wait for acknowledgement for sent packet
         if not fin_sent:
+            # Set timeout for receiving ACK message
             send_sock.settimeout(0.5)
             try:
+                # Receive ACK message, parse header and flags
                 ack_msg, addr = send_sock.recvfrom(1472)
                 seq_num, ack_num, flags, win = parse_header(ack_msg[:12])
                 syn, ack, fin = parse_flags(flags)
-
+                # If ack flag is set and packet has correct acknowledge number,
+                # move the base sequence number for the window
                 if ack and ack_num >= base_seq_num:
                     print("ACK msg: ack_num=", ack_num)
                     base_seq_num = ack_num + 1
+                    # Update unacked packets list
                     new_unacked_packets = {}
                     for seq_num, packet_data in unacked_packets.items():
                         if seq_num >= base_seq_num:
                             new_unacked_packets[seq_num] = packet_data
 
                     unacked_packets = new_unacked_packets
-
+            # If timeout occurs, resend all unacknowledged packets with original payload
             except timeout:
                 print("Timeout occurred. Resending packets")
                 for seq_num, packet_data in unacked_packets.items():
