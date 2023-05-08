@@ -34,11 +34,13 @@ def check_port(port_number):
 def run_server(ip, port, reliability_func, window_size, test):
     file_path = "received_file.jpg"
     received_data = b""
+
     try:
         server_socket = socket(AF_INET, SOCK_DGRAM)
         server_socket.bind((ip, port))
 
         print(f"Server listening on {ip}:{port}")
+
         if reliability_func == "SAW":
             received_data = RECV_SAW(server_socket, test)
         elif reliability_func == "GBN":
@@ -63,6 +65,7 @@ def run_client(ip, port, reliability_func, file_path, window_size, test):
     try:
         sender_sock = socket(AF_INET, SOCK_DGRAM)
         addr = (ip, port)
+
         with open(file_path, "rb") as f:
             file_data = f.read()
 
@@ -72,6 +75,7 @@ def run_client(ip, port, reliability_func, file_path, window_size, test):
 
     try:
         start_time = time.monotonic()
+
         if reliability_func == "SAW":
             SEND_SAW(sender_sock, addr, file_data)
         elif reliability_func == "GBN":
@@ -82,7 +86,7 @@ def run_client(ip, port, reliability_func, file_path, window_size, test):
         elapsed_time = time.monotonic() - start_time
         throughput = (len(file_data) * 8 / elapsed_time) / (1024**2)
         print(f"\nBandwidth:{throughput:.2f}")
-        
+
     except KeyboardInterrupt:
         sender_sock.close()
         sys.exit()
@@ -119,6 +123,7 @@ if __name__ == '__main__':
 
         elif not args.test:
             run_client(args.ip_address, args.port, args.reliability, args.file_name, args.window, False)
+
         else:
             print("Type in 'loss' as argument to test skipping sequence number")
             sys.exit()
