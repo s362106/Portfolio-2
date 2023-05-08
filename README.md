@@ -54,19 +54,19 @@ Afterward, open a new terminal window and run *application.py* in client mode:
 python3 application.py -c
 ```
 
-The client will send the default file using the Stop_And_Wait reliable method
+The client will send the default file using the Stop_And_Wait reliable method.
 
 ### Testing for retransmission scenarios
 
-To skip an acknowledgment message and therefore trigger retransmission, use the following command:
+To skip an acknowledgment message at the receiver side and therefore trigger retransmission, use the following command:
 ```
 python3 application.py -s -r <reliable method> -t skip_ack
 ```
 
-This test works for all three reliable methods.
+*This test works for all three reliable methods.*
 
-To skip a sequence number to show the out-of-order delivery effect, and trigger retransmission, use the following command:
+To skip a sequence number at the sender side to show the out-of-order delivery effect, and trigger retransmission, use the following command:
 ```
 python3 application.py -c -r <reliable_method> -t loss
 ```
-*Note that this test only works for Go_Back_N and Selective Repeate reliable methods*
+*Note that this test only works for Go_Back_N and Selective Repeat reliable methods.*
