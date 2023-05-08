@@ -244,7 +244,7 @@ def close_conn(sock, addr, next_seq_num):
 
 
 # server
-def RECV_STOP(sock, skip_ack):
+def RECV_SAW(sock, skip_ack):
     """
     Receives data packets sent by the sender and sends ACK packets to confirm receipt of each packet
 
