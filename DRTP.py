@@ -6,25 +6,25 @@ import sys
 TIMEOUT = 0.5
 
 # Header format
-header_format = '!IIHH'
+header_format = "!IIHH"
 
 handshake_complete = False
 
 
 def create_packet(seq_num, ack_num, flags, window_size, data):
     """
-        Creates a packet from the given parameters
+    Creates a packet from the given parameters
 
-        Args:
-            seq_num (int): The sequence number of the packet
-            ack_num (int): The acknowledgement number of the packet
-            flags (int): An integer representing the packet's flags
-            window_size (int): The window size of the packet
-            data (bytes): The data to be included in the packet
+    Args:
+        seq_num (int): The sequence number of the packet
+        ack_num (int): The acknowledgement number of the packet
+        flags (int): An integer representing the packet's flags
+        window_size (int): The window size of the packet
+        data (bytes): The data to be included in the packet
 
-        Returns:
-            bytes: The packet created from the given parameters
-        """
+    Returns:
+        bytes: The packet created from the given parameters
+    """
     header = pack(header_format, seq_num, ack_num, flags, window_size)
     packet = header + data
     return packet
@@ -32,29 +32,29 @@ def create_packet(seq_num, ack_num, flags, window_size, data):
 
 def parse_header(header):
     """
-       Parses the given header bytes and returns the values as a tuple
+    Parses the given header bytes and returns the values as a tuple
 
-       Args:
-           header (bytes): The header bytes to be parsed
+    Args:
+        header (bytes): The header bytes to be parsed
 
-       Returns:
-           tuple[int, int, int, int]: A tuple containing the sequence number, acknowledgement number, flags,
-           and window size parsed from the header bytes
-       """
+    Returns:
+        tuple[int, int, int, int]: A tuple containing the sequence number, acknowledgement number, flags,
+        and window size parsed from the header bytes
+    """
     header_from_msg = unpack(header_format, header)
     return header_from_msg
 
 
 def parse_flags(flags):
     """
-        Parses the given flags integer and returns a tuple containing the SYN, ACK, and FIN flags
+    Parses the given flags integer and returns a tuple containing the SYN, ACK, and FIN flags
 
-        Args:
-            flags (int): An integer representing the flags of the packet
+    Args:
+        flags (int): An integer representing the flags of the packet
 
-        Returns:
-            tuple: A tuple containing the SYN, ACK, and FIN flags
-        """
+    Returns:
+        tuple: A tuple containing the SYN, ACK, and FIN flags
+    """
     syn = (flags >> 3) & 1
     ack = (flags >> 2) & 1
     fin = (flags >> 1) & 1
@@ -64,35 +64,35 @@ def parse_flags(flags):
 
 def send(sock, data, seq_num, addr):
     """
-        Sends a packet with the given data, sequence number, and address using the provided socket
+    Sends a packet with the given data, sequence number, and address using the provided socket
 
-        Args:
-            sock (socket): The socket to use for sending the packet
-            data (bytes): The data to include as payload in the packet
-            seq_num (int): The sequence number of the packet
-            addr (tuple): A tuple representing the address to send the packet to
+    Args:
+        sock (socket): The socket to use for sending the packet
+        data (bytes): The data to include as payload in the packet
+        seq_num (int): The sequence number of the packet
+        addr (tuple): A tuple representing the address to send the packet to
 
-        Returns:
-            None
-        """
+    Returns:
+        None
+    """
     packet = create_packet(seq_num, 0, 0, 0, data)
     sock.sendto(packet, addr)
 
 
 def send_ack(sock, ack_num, addr):
     """
-        Sends an acknowledgement packet with the given acknowledgement number and address using the provided socket
+    Sends an acknowledgement packet with the given acknowledgement number and address using the provided socket
 
-        Args:
-            sock (socket): The socket to use for sending the acknowledgement packet
-            ack_num (int): The acknowledgement number to include in the packet
-            addr (tuple): A tuple representing the address to send the acknowledgement packet to
+    Args:
+        sock (socket): The socket to use for sending the acknowledgement packet
+        ack_num (int): The acknowledgement number to include in the packet
+        addr (tuple): A tuple representing the address to send the acknowledgement packet to
 
-        Returns:
-            None
-        """
+    Returns:
+        None
+    """
 
-    ack_msg = create_packet(0, ack_num, 4, 64, b'')  # flags = 0 1 0 0 = 4 --> ACK flag value
+    ack_msg = create_packet(0, ack_num, 4, 64, b"")  # flags = 0 1 0 0 = 4 --> ACK flag value
     sock.sendto(ack_msg, addr)
 
 
@@ -113,7 +113,7 @@ def initiate_handshake(sock, addr):
     # If handshake has not yet been completed, establish connection
     if not handshake_complete:
         flags = 8  # 1 0 0 0 = SYN flag value
-        syn_packet = create_packet(0, 0, flags, 0, b'')  # Create SYN packet
+        syn_packet = create_packet(0, 0, flags, 0, b"")  # Create SYN packet
         sock.sendto(syn_packet, addr)  # Send SYN packet to destination address
         print("Sent SYN packet with seq_num", 0)
 
@@ -140,7 +140,7 @@ def initiate_handshake(sock, addr):
             except timeout:
                 print(f"Timeout occurred. Resending SYN packet with seq_num 0")
                 flags = 8  # 1 0 0 0 = SYN flag value
-                syn_packet = create_packet(0, 0, flags, 0, b'')  # Create new SYN packet
+                syn_packet = create_packet(0, 0, flags, 0, b"")  # Create new SYN packet
                 sock.sendto(syn_packet, addr)  # Send new SYN packet to destination address
 
 
@@ -160,7 +160,6 @@ def handle_handshake(sock):
 
     # If the handshake is not completed yet
     if not handshake_complete:
-
         # Keep looping until the handshake is complete
         while True:
             try:
@@ -175,7 +174,7 @@ def handle_handshake(sock):
                 if syn and not ack and not fin:
                     print("Received SYN msg")
                     # Create a SYN-ACK packet and send back to sender
-                    syn_ack_msg = create_packet(0, 0, 12, 64, b'')
+                    syn_ack_msg = create_packet(0, 0, 12, 64, b"")
                     sock.sendto(syn_ack_msg, addr)
 
                 # If ACK flag is set and no other flags are set
@@ -205,7 +204,7 @@ def close_conn(sock, addr, next_seq_num):
 
     flags = 2  # 0 0 1 0 = FIN flag value
     # Create packet with current sequence number and to destination address
-    fin_msg = create_packet(next_seq_num, 0, flags, 0, b'')
+    fin_msg = create_packet(next_seq_num, 0, flags, 0, b"")
     sock.sendto(fin_msg, addr)
 
     fin_ack_received = False
@@ -236,7 +235,7 @@ def close_conn(sock, addr, next_seq_num):
                 print("Received duplicate ACK msg with ack_num", ack_num)
                 flags = 2  # Set the flag value to FIN
                 # Create a new packet and resend to the destination address
-                fin_msg = create_packet(next_seq_num, 0, flags, 0, b'')
+                fin_msg = create_packet(next_seq_num, 0, flags, 0, b"")
                 sock.sendto(fin_msg, addr)
         # If a timeout occurs, resend the FIN packet
         except timeout:
@@ -262,7 +261,7 @@ def RECV_STOP(sock, skip_ack):
     # Sequence number of the next expected packet
     expected_seq_num = 1
     # Concatenated data of all received packets
-    received_data = b''
+    received_data = b""
 
     while True:
         # Receive packet from sender
@@ -385,7 +384,7 @@ def RECV_GBN(sock, skip_ack):
 
     # Initialize variables
     expected_seq_num = 1
-    received_data = b''
+    received_data = b""
     # Continuously receive packets and send back ACK messages if received packets are in-order
     while True:
         message, addr = sock.recvfrom(1472)
@@ -453,7 +452,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
             if chunk_size == 0:
                 if not unacked_packets:
                     # All sent packets have been acknowledged, send FIN message
-                    fin_packet = create_packet(next_seq_num, 0, 2, 0, b'')
+                    fin_packet = create_packet(next_seq_num, 0, 2, 0, b"")
                     send_sock.sendto(fin_packet, addr)
                     print("FIN msg sent. Waiting for ACK...")
                     fin_sent = True
@@ -463,7 +462,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                     break
 
             # This line slices the next chunk of data to be sent from data
-            chunk_data = data[data_offset:data_offset + chunk_size]
+            chunk_data = data[data_offset : data_offset + chunk_size]
             # If skip_seq_num is True and the next sequence number is 5, skip sending the packet and continue to the
             # next iteration of the loop
             if skip_seq_num and next_seq_num == 5:
@@ -622,7 +621,7 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
             if chunk_size == 0:  # Send FIN packet if all data has been sent and acked
                 if not unacked_packets:
                     # All data has been sent and acknowledged, send FIN message
-                    fin_packet = create_packet(next_seq_num, 0, 2, 0, b'')
+                    fin_packet = create_packet(next_seq_num, 0, 2, 0, b"")
                     send_sock.sendto(fin_packet, addr)
                     print("FIN msg sent. Waiting for ACK...")
                     fin_sent = True
@@ -631,7 +630,7 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
                     break
 
             # Create packet and send it
-            chunk_data = data[data_offset:data_offset + chunk_size]
+            chunk_data = data[data_offset : data_offset + chunk_size]
             if skip_seq_num and next_seq_num == 5:
                 skip_seq_num = False
                 print("Skipping seq_num =", next_seq_num)
