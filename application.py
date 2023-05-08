@@ -40,7 +40,7 @@ def run_server(ip, port, reliability_func, window_size, test):
 
         print(f"Server listening on {ip}:{port}")
         if reliability_func == "SAW":
-            received_data = RECV_STOP(server_socket, test)
+            received_data = RECV_SAW(server_socket, test)
         elif reliability_func == "GBN":
             received_data = RECV_GBN(server_socket, test)
         elif reliability_func == "SR":
