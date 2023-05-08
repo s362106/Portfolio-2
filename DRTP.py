@@ -324,8 +324,9 @@ def SEND_SAW(sock, addr, data):
     # Initiate three-way handshake with the receiver
     initiate_handshake(sock, addr)
 
-    # Set initial sequence number to 1
+    # Set initial sequence number to 1, and declare empty list to store payload of last sent packet
     sequence_num = 1
+    last_sent_packet = {}
     # Loop until there is no data to send
     while True:
         # If no more data, close the connection and exit loop
@@ -335,6 +336,7 @@ def SEND_SAW(sock, addr, data):
 
         # Send the next packet of data (upt to 1460bytes) with the current sequence number
         send(sock, data[:1460], sequence_num, addr)
+        last_sent_packet[sequence_num] = data[:1460]
         # Remove the sent data from the buffer
         data = data[1460:]
 
@@ -350,11 +352,12 @@ def SEND_SAW(sock, addr, data):
                 seq_num, ack_num, flags, win = parse_header(header_from_msg)  # Parse the header fields
                 syn, ack, fin = parse_flags(flags)  # Parse the flags
 
-                # If received ACK message is valid, update sequence number and set received_ack to True
+                # If received ACK message is valid, update sequence number, empty sent packet list and set received_ack to True
                 if ack and ack_num == sequence_num:
                     print(f"ACK msg: ack_num={ack_num}, flags={flags}")
                     sequence_num += 1
                     received_ack = True
+                    last_sent_packet = {}
 
                 # If the acknowledgement message is a duplicate, resend the previous packet with the previous sequence number
                 elif ack and ack_num == sequence_num - 1:
@@ -364,7 +367,7 @@ def SEND_SAW(sock, addr, data):
             # If timeout occurs while waiting for ACK message, resend the pakcet with the current sequence number
             except timeout:
                 print(f"Timeout occurred. Resending packet with seq_num={sequence_num}, flags=0")
-                send(sock, data[:1460], sequence_num, addr)
+                send(sock, last_sent_packet[sequence_num], sequence_num, addr)
 
 
 # server
