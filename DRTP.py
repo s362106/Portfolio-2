@@ -514,7 +514,8 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
             syn, ack, fin = parse_flags(flags)
 
             if ack and ack_num == next_seq_num:
-                print("ACK for FIN msg received. Exiting...")
+                print("ACK for FIN msg received. Closing connection and exiting...")
+                send_sock.close()
                 break
 
         except timeout:

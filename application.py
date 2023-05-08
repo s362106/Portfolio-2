@@ -32,7 +32,7 @@ def check_port(port_number):
 
 
 def run_server(ip, port, reliability_func, window_size, test):
-    file_path = "received_file.png"
+    file_path = "received_file.jpg"
     received_data = b""
     try:
         server_socket = socket(AF_INET, SOCK_DGRAM)
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--client', action='store_true', help='Run in client mode')
     parser.add_argument('-i', '--ip_address', type=check_ip, default='127.0.0.1', help='Choose IP address')
     parser.add_argument('-p', '--port', type=check_port, default=12000, help='Choose the port number')
-    parser.add_argument('-f', '--file_name', type=str, default='./Screenshot 2023-04-28 at 19.57.31.png', help='File name to store the data in')
+    parser.add_argument('-f', '--file_name', type=str, default='./testFile.jpg', help='File name to store the data in')
     parser.add_argument('-r', '--reliability', type=str.upper, choices=['SAW', 'GBN', 'SR'], default='SAW', help='Choose reliability of the data transfer')
     parser.add_argument('-t', '--test', type=str.upper, default=False, help='Choose which artificial test case')
     parser.add_argument('-w', '--window', type=int, default=5, help='Select window size (only in GBN & SR)')
