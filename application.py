@@ -45,9 +45,6 @@ def run_server(ip, port, reliability_func, window_size, test):
             received_data = RECV_GBN(server_socket, test)
         elif reliability_func == "SR":
             received_data = RECV_SR(server_socket, test, window_size)
-        else:
-            print("Invalid reliability function specified")
-            sys.exit()
 
         with open(file_path, "wb") as file:
             file.write(received_data)
@@ -81,12 +78,11 @@ def run_client(ip, port, reliability_func, file_path, window_size, test):
             SEND_GBN(sender_sock, addr, file_data, window_size, test)
         elif reliability_func == "SR":
             SEND_SR(sender_sock, addr, file_data, window_size, test)
-        else:
-            print("Invalid reliability function specified")
 
         elapsed_time = time.monotonic() - start_time
         throughput = (len(file_data) * 8 / elapsed_time) / (1024**2)
         print(f"\nBandwidth:{throughput:.2f}")
+        
     except KeyboardInterrupt:
         sender_sock.close()
         sys.exit()
