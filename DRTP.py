@@ -642,9 +642,9 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
     fin_sent = False
 
     while not fin_sent:  # While FIN packet is not sent
+        rtt = 0.5
         # Send packets within the window
         while next_seq_num < base_seq_num + window_size:
-            rtt = 0.5
             chunk_size = min(1460, len(data) - data_offset)
             if chunk_size == 0:  # Send FIN packet if all data has been sent and acked
                 if not unacked_packets:
