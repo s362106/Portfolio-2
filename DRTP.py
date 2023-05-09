@@ -3,8 +3,6 @@ from struct import *
 from socket import *
 import sys
 
-TIMEOUT = 0.5
-
 # Header format
 header_format = "!IIHH"
 
@@ -456,6 +454,8 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
     unacked_packets = {}
     data_offset = 0
     fin_sent = False
+
+    rtt = 0.5  # Initial estimated RTT
     
     # Loop until FIN message is sent
     while not fin_sent:
@@ -488,6 +488,8 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                 next_seq_num += 1
                 data_offset += chunk_size
                 continue
+
+            send_time = time.monotonic()  # Record packet send time
             # Send the packet, add its data to unacked_packets and increment sequence number and data_offset
             send(send_sock, chunk_data, next_seq_num, addr)
             unacked_packets[next_seq_num] = chunk_data
@@ -496,7 +498,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
         # If FIN message not sent, wait for acknowledgement for sent packet
         if not fin_sent:
             # Set timeout for receiving ACK message
-            send_sock.settimeout(0.5)
+            send_sock.settimeout(rtt)
             try:
                 # Receive ACK message, parse header and flags
                 ack_msg, addr = send_sock.recvfrom(1472)
@@ -514,9 +516,15 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                             new_unacked_packets[seq_num] = packet_data
 
                     unacked_packets = new_unacked_packets
+
+                    # Set timeout as 4 times the estimated RTT
+                    estimated_rtt = time.monotonic() - send_time
+                    rtt = 4 * rtt
+
             # If timeout occurs, resend all unacknowledged packets with original payload
             except timeout:
                 print("Timeout occurred. Resending packets")
+                rtt *= 2
                 for seq_num, packet_data in unacked_packets.items():
                     new_packet = create_packet(seq_num, 0, 0, 0, packet_data)
                     send_sock.sendto(new_packet, addr)
