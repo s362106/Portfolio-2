@@ -3,8 +3,6 @@ from struct import *
 from socket import *
 import sys
 
-TIMEOUT = 0.5
-
 # Header format
 header_format = "!IIHH"
 
@@ -327,7 +325,7 @@ def SEND_SAW(sock, addr, data):
     # Set initial sequence number to 1, and declare empty list to store payload of last sent packet
     sequence_num = 1
     last_sent_packet = {}
-    # Initialize the estimated RTT and the timeout value
+    # Initialize the RTT 
     rtt = 0.5
     # Loop until there is no data to send
     while True:
@@ -365,8 +363,8 @@ def SEND_SAW(sock, addr, data):
                     last_sent_packet = {}
 
                     # Calculate the roundtrip time and update the RTT to times 4
-                    estimated_rtt = time.monotonic() - send_time
-                    rtt = 4 * estimated_rtt
+                    est_rtt = time.monotonic() - send_time
+                    rtt = 4 * est_rtt
 
                 # If the acknowledgement message is a duplicate, resend the previous packet with the previous sequence number
                 elif ack and ack_num == sequence_num - 1:
@@ -457,6 +455,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
     data_offset = 0
     fin_sent = False
 
+    # Initialize the RTT 
     rtt = 0.5
     
     # Loop until FIN message is sent
@@ -519,13 +518,14 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
 
                     unacked_packets = new_unacked_packets
 
-                    # Set timeout as 4 times the estimated RTT
+                    # Calculate the roundtrip time and update the RTT to times 4
                     est_rtt = time.monotonic() - send_time
                     rtt = 4 * est_rtt
 
             # If timeout occurs, resend all unacknowledged packets with original payload
             except timeout:
                 print("Timeout occurred. Resending packets")
+                # Double the current RTT to handle multiple timeouts
                 rtt *= 2
                 for seq_num, packet_data in unacked_packets.items():
                     new_packet = create_packet(seq_num, 0, 0, 0, packet_data)
@@ -533,7 +533,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
 
     # Wait for ACK for the FIN message
     while True:
-        send_sock.settimeout(0.5)
+        send_sock.settimeout(rtt)
         try:
             ack_msg, addr = send_sock.recvfrom(1472)
             seq_num, ack_num, flags, win = parse_header(ack_msg[:12])
@@ -641,6 +641,8 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
     data_offset = 0
     fin_sent = False
 
+    rtt = 0.5
+
     while not fin_sent:  # While FIN packet is not sent
         # Send packets within the window
         while next_seq_num < base_seq_num + window_size:
@@ -677,7 +679,7 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
 
         # Check for ACKs
         if not fin_sent:
-            send_sock.settimeout(0.5)
+            send_sock.settimeout(rtt)
             try:
                 ack_packet, addr = send_sock.recvfrom(1472)
                 ack_seq_num, ack_num, ack_flags, ack_win = parse_header(ack_packet[:12])
@@ -686,6 +688,9 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
                 # If ACK is received and within current window, update base_seq_num and remove acked packets from unacked packets
                 if ack and ack_num >= base_seq_num:
                     print("ACK msg: ack_num=", ack_num)
+                    est_rtt = time.monotonic() - unacked_packets[ack_num][1]
+                    rtt = 4 * est_rtt
+
                     # Update base_seq_num and remove acknowledged packets from unacked_packets
                     base_seq_num = ack_num + 1
                     for seq_num in list(unacked_packets.keys()):
@@ -704,7 +709,7 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
 
     # Wait for ACK for the FIN message
     while True:
-        send_sock.settimeout(0.5)
+        send_sock.settimeout(rtt)
         try:
             ack_packet, addr = send_sock.recvfrom(1472)
             ack_seq_num, ack_num, ack_flags, ack_win = parse_header(ack_packet[:12])
