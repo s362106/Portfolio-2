@@ -3,6 +3,8 @@ from struct import *
 from socket import *
 import sys
 
+TIMEOUT = 0.5
+
 # Header format
 header_format = "!IIHH"
 
@@ -455,7 +457,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
     data_offset = 0
     fin_sent = False
 
-    rtt = 0.5  # Initial estimated RTT
+    rtt = 0.5
     
     # Loop until FIN message is sent
     while not fin_sent:
@@ -488,7 +490,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                 next_seq_num += 1
                 data_offset += chunk_size
                 continue
-
+            
             send_time = time.monotonic()  # Record packet send time
             # Send the packet, add its data to unacked_packets and increment sequence number and data_offset
             send(send_sock, chunk_data, next_seq_num, addr)
@@ -518,8 +520,8 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                     unacked_packets = new_unacked_packets
 
                     # Set timeout as 4 times the estimated RTT
-                    estimated_rtt = time.monotonic() - send_time
-                    rtt = 4 * rtt
+                    est_rtt = time.monotonic() - send_time
+                    rtt = 4 * est_rtt
 
             # If timeout occurs, resend all unacknowledged packets with original payload
             except timeout:
