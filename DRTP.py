@@ -327,6 +327,8 @@ def SEND_SAW(sock, addr, data):
     # Set initial sequence number to 1, and declare empty list to store payload of last sent packet
     sequence_num = 1
     last_sent_packet = {}
+    # Initialize the estimated RTT and the timeout value
+    rtt = 0.5
     # Loop until there is no data to send
     while True:
         # If no more data, close the connection and exit loop
@@ -340,11 +342,14 @@ def SEND_SAW(sock, addr, data):
         # Remove the sent data from the buffer
         data = data[1460:]
 
+        # Record the time the packet was sent
+        send_time = time.monotonic()
+
         # Wait for ACK message from the receiver
         received_ack = False
         while not received_ack:
-            # Set a timeout of 0.5 seconds for receiving ACK message
-            sock.settimeout(0.5)
+            # Set the timeout to the estimated RTT times 4
+            sock.settimeout(rtt)
 
             try:
                 ack_msg, addr = sock.recvfrom(1472)  # Receive message from destination address
@@ -359,6 +364,10 @@ def SEND_SAW(sock, addr, data):
                     received_ack = True
                     last_sent_packet = {}
 
+                    # Calculate the roundtrip time and update the RTT to times 4
+                    estimated_rtt = time.monotonic() - send_time
+                    rtt = 4 * estimated_rtt
+
                 # If the acknowledgement message is a duplicate, resend the previous packet with the previous sequence number
                 elif ack and ack_num == sequence_num - 1:
                     print("Received duplicate ACK msg with ack_num", ack_num)
@@ -368,6 +377,9 @@ def SEND_SAW(sock, addr, data):
             except timeout:
                 print(f"Timeout occurred. Resending packet with seq_num={sequence_num}, flags=0")
                 send(sock, last_sent_packet[sequence_num], sequence_num, addr)
+
+                # Double the current RTT to handle multiple timeouts
+                rtt *= 2 
 
 
 # server
@@ -444,6 +456,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
     unacked_packets = {}
     data_offset = 0
     fin_sent = False
+    
     # Loop until FIN message is sent
     while not fin_sent:
         # Send packets while the number of unacknowledged packets is less than the window size
