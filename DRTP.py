@@ -668,11 +668,10 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
                 data_offset += chunk_size
 
                 continue
-            send_packet = create_packet(next_seq_num, 0, 0, 0, chunk_data)
-            send_sock.sendto(send_packet, addr)
+            send(send_sock, chunk_data, next_seq_num, addr)
 
             # Add packet to unacked packets and update next seq num and data offset
-            unacked_packets[next_seq_num] = (send_packet, time.monotonic())
+            unacked_packets[next_seq_num] = (chunk_data, time.monotonic())
             next_seq_num += 1
             data_offset += chunk_size
 
