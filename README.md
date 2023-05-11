@@ -57,7 +57,7 @@ The easiest way to test the program is to run it on any terminal as explained ab
 This project aims to test the code in a virtual network using mininet in different test scenarios. The tests are conducted on the topology provided in the `simple-topo.py` file. To run the same tests, on a recent release of Ubuntu or Debian, install mininet, xterm and iperf if it has not been installed already. Once installed, you can run the following test cases.
 
 ## Test case 1
-Run the file transfer application with the three reliable protocols (GBN and SR with window sizes 5, 10, 15) using RTTs 25, 50 and 100ms. To change the RTT values go to the `simple-topo.py` file and edit the delay values in line 28 and 29 to get the desired RTT. Run a simple ping test to confirm, e.g.
+Run the file transfer application with the three reliable protocols (`GBN` and `SR` with window sizes 5, 10, 15) using RTTs 25, 50 and 100ms. To change the RTT values go to the `simple-topo.py` file and edit the delay values in line 28 and 29 to get the desired RTT. Run a simple ping test to confirm, e.g.
 
     ping 10.0.1.2 from h1
 
@@ -65,15 +65,17 @@ First, run server with respective reliable method, e.g.
 
     python3 application.py -s -r SAW
 
-1. Run stop and wait with three RTT values: 25, 50, and 100ms, e.g.
+The client for the different scenarios with respective reliable method 
+
+1. Run `SAW` with three RTT values: 25, 50, and 100ms, e.g.
 
         python3 application.py -c -f <file_to_transfer.jpg> -r SAW
 
-2. Run GBN with window size 5 for three different RTT values. Repeat the same for window sizes 10 and 15, e.g.
+2. Run `GBN` with window size 5 for three different RTT values. Repeat the same for window sizes 10 and 15, e.g.
 
         python3 application.py -c -f <file_to_transfer.jpg> -r GBN -w 5
 
-3. Run SR with window size 5 for three different RTT values. Repeat the same for window sizes 10 and 15, e.g.
+3. Run `SR` with window size 5 for three different RTT values. Repeat the same for window sizes 10 and 15, e.g.
 
         python3 application.py -c -f <file_to_transfer.jpg> -r SR -w 5
 

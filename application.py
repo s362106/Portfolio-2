@@ -6,6 +6,15 @@ import sys
 from DRTP import *
 
 def check_ip(ip_address):
+    '''
+    Checks if provided IP address is valid (-i flag)
+
+    Args:
+        ip_address(str): holds the provided IP address
+
+    Returns:
+        the IP address if it is valid, else an error is raised
+    '''
     try:
         # convert argument to an IPv4 address
         ipaddress.ip_address(ip_address)
@@ -17,6 +26,15 @@ def check_ip(ip_address):
 
 
 def check_port(port_number):
+    '''
+    Checks if provided port number is valid (-i flag)
+
+    Args:
+        ip_address(str): holds the provided IP address
+
+    Returns:
+        the port number if it is valid, else an error is raised
+    '''
     try:
         # convert argument to an integer data type
         port_number = int(port_number)
@@ -91,8 +109,9 @@ def run_client(ip, port, reliability_func, file_path, window_size, test):
         sender_sock.close()
         sys.exit()
 
-
+# Main function to run the tool
 if __name__ == '__main__':
+    # define the argument parser and provide a description
     parser = argparse.ArgumentParser(description="A custom reliable data transfer protocol", epilog="End of help")
 
     parser.add_argument('-s', '--server', action='store_true', help='Run in server mode')
@@ -104,8 +123,19 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--test', type=str.upper, default=False, help='Choose which artificial test case')
     parser.add_argument('-w', '--window', type=int, default=5, help='Select window size (only in GBN & SR)')
 
+    # parse the command-line arguments
     args = parser.parse_args()
 
+    # if the user has neither specified -s or -c flag, print error message and exit program 
+    if not (args.server or args.client):
+        print('Error: you must run either in server or client mode')
+        sys.exit()
+    # if the user has specified both -s or -c flag at the same time, print error message and exit program 
+    if args.server and args.client:
+        print('Error: you cannot run both server and client mode at once')
+        sys.exit()
+
+    # if the user specified -s flag, call run_server with the provided arguments
     if args.server:
         if args.test == "SKIP_ACK":
             run_server(args.ip_address, args.port, args.reliability, args.window, True)
@@ -117,7 +147,8 @@ if __name__ == '__main__':
             print("Type in 'skip_ack' as argument to test skipping ack msg")
             sys.exit()
 
-    elif args.client:
+    # if the user specified -c flag, call run_client with the provided arguments
+    if args.client:
         if args.test == "LOSS":
             run_client(args.ip_address, args.port, args.reliability, args.file_name, args.window, True)
 

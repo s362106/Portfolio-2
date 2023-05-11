@@ -318,7 +318,7 @@ def SEND_SAW(sock, addr, data):
         data (bytes): File data to be sent in bytes
 
     Returns:
-        None
+        Void
     """
 
     # Initiate three-way handshake with the receiver
@@ -450,6 +450,9 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
         data (bytes): File data to be sent in bytes
         window_size (int): The size of the sliding window/the number of packets in flight
         skip_seq_num (bool): Whether to skip a sequence number or not for test cases
+
+    Returns:
+        Void
     """
     # Initiate three-way handshake
     initiate_handshake(send_sock, addr)
@@ -644,6 +647,8 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
         window_size (int): The size of the sliding window/the number of packets in flight
         skip_seq_num (bool): Whether to skip a sequence number or not for test cases
 
+    Returns:
+        Void
     """
 
     initiate_handshake(send_sock, addr)
