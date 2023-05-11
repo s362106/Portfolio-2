@@ -279,12 +279,11 @@ def RECV_SAW(sock, skip_ack):
 
         # If received packet has correct sequence number
         if not fin and not syn and not ack and seq_num == expected_seq_num:
-            print(f"Received in-order with seq_num", seq_num)
+            print("Received in-order with seq_num =", seq_num)
             # Extract payload from the packet
             app_data = msg[12:]
             # Send an ACK message with received seq_num
             send_ack(sock, expected_seq_num, addr)
-            print("Sent ACK msg with ack_num", expected_seq_num)
             # Increment the expected sequence number
             expected_seq_num += 1
             received_data += app_data
@@ -293,7 +292,7 @@ def RECV_SAW(sock, skip_ack):
         elif not fin and not syn and not ack and seq_num != expected_seq_num:
             # Send a duplicate ACK message to the sender, if received a duplicate packet
             if seq_num == expected_seq_num - 1:
-                print(f"Received duplicate packet with seq_num", seq_num)
+                print("Received duplicate packet with seq_num =", seq_num)
                 send_ack(sock, expected_seq_num - 1, addr)
 
             # Else ignore received packet
@@ -362,7 +361,7 @@ def SEND_SAW(sock, addr, data):
 
                 # If received ACK message is valid, update sequence number, empty sent packet list and set received_ack to True
                 if ack and ack_num == sequence_num:
-                    print("ACK msg: ack_num=", ack_num)
+                    print("ACK msg: ack_num =", ack_num)
                     sequence_num += 1
                     received_ack = True
                     last_sent_packet = {}
@@ -378,7 +377,7 @@ def SEND_SAW(sock, addr, data):
 
             # If timeout occurs while waiting for ACK message, resend the pakcet with the current sequence number
             except timeout:
-                print("Timeout occurred. Resending packet with seq_num=", sequence_num)
+                print("Timeout occurred. Resending packet with seq_num =", sequence_num)
                 send(sock, last_sent_packet[sequence_num], sequence_num, addr)
 
                 # Double the current RTT to handle multiple timeouts
@@ -423,7 +422,7 @@ def RECV_GBN(sock, skip_ack):
         # If received packet has correct sequence number
         elif not ack and seq_num >= expected_seq_num:
             if not fin and seq_num == expected_seq_num:
-                print("Received in-order with seq_num=", seq_num)
+                print("Received in-order with seq_num =", seq_num)
                 received_data += message[12:]
                 expected_seq_num += 1
                 send_ack(sock, seq_num, addr)
@@ -435,7 +434,7 @@ def RECV_GBN(sock, skip_ack):
                 return received_data
             
             else:
-                print("Received out-of-order with seq_num=", seq_num)
+                print("Received out-of-order with seq_num =", seq_num)
                 # Discarding out-of-order packets
                 pass
 
@@ -519,7 +518,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                 # If ack flag is set and packet has correct acknowledge number,
                 # move the base sequence number for the window
                 if ack and ack_num >= base_seq_num:
-                    print("ACK msg: ack_num=", ack_num)
+                    print("ACK msg: ack_num =", ack_num)
                     base_seq_num = ack_num + 1
                     # Update unacked packets list
                     new_unacked_packets = {}
@@ -599,7 +598,7 @@ def RECV_SR(sock, skip_ack, window_size):
         # and the no. of unacknowledged packets is less than the window size
         elif not ack and seq_num >= expected_seq_num and len(unacked_packets) < window_size:
             if not fin and seq_num == expected_seq_num:
-                print("Received in-order with seq_num=", seq_num)
+                print("Received in-order with seq_num =", seq_num)
                 received_data += message[12:]  # Add packet data to received data
                 expected_seq_num += 1  # Update expected seq num to next in order packet
 
@@ -620,7 +619,7 @@ def RECV_SR(sock, skip_ack, window_size):
                 return received_data
             
             else:  # Packet is out of order and is added to unacked_packets
-                print("Received out-of-order with seq_num=", seq_num)
+                print("Received out-of-order with seq_num =", seq_num)
                 # Send an acknowledgment for the last received in-order packet
                 send_ack(sock, expected_seq_num - 1, addr)
                 # Add the out-of-order packet to the unacknowledged list
@@ -703,7 +702,7 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
 
                 # If ACK is received and within current window, update base_seq_num and remove acked packets from unacked packets
                 if ack and ack_num >= base_seq_num:
-                    print("ACK msg: ack_num=", ack_num)
+                    print("ACK msg: ack_num =",ack_num)
 
                     # Calculate the roundtrip time and update the estimated RTT to 4RTT
                     rtt = time.monotonic() - unacked_packets[ack_num][1]
