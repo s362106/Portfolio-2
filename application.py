@@ -114,7 +114,7 @@ if __name__ == '__main__':
             run_server(args.ip_address, args.port, args.reliability, args.window, False)
 
         else:
-            print("Type in skip_ack as argument to test skipping ack msg")
+            print("Type in 'skip_ack' as argument to test skipping ack msg")
             sys.exit()
 
     elif args.client:
