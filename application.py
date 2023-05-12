@@ -13,7 +13,7 @@ def check_ip(ip_address):
         ip_address(str): holds the provided IP address
 
     Returns:
-        the IP address if it is valid, else an error is raised
+        the IP address (IPv4Address) if it is valid, else an error is raised
     '''
     try:
         # convert argument to an IPv4 address
@@ -30,10 +30,10 @@ def check_port(port_number):
     Checks if provided port number is valid (-i flag)
 
     Args:
-        ip_address(str): holds the provided IP address
+        port_number(str): holds the provided IP address
 
     Returns:
-        the port number if it is valid, else an error is raised
+        the port number (int) if it is valid, else an error is raised
     '''
     try:
         # convert argument to an integer data type
@@ -54,7 +54,7 @@ def run_server(ip_address, port, reliable_method, window_size, test):
     Receives data using the specified reliability function and saves the received file to "received_file.jpg"
 
     Args:
-        ip_address(str): the IP address to bind the socket to
+        ip_address(IPv4Address): the IP address to bind the socket to
         port(int): the port number to bind the socket to
         reliable_method(str): the reliability function to use, "SAW", "GBN", or "SR"
         window_size(int): the size of the sliding window, which is only used for "SR"
@@ -63,15 +63,27 @@ def run_server(ip_address, port, reliable_method, window_size, test):
     Returns:
         Void
     '''
+    # Set the name and path of the file that the server will save the incoming data to
     file_path = "received_file.jpg"
+    # Initialize a variable to store the incoming data from the client
     received_data = b""
 
     try:
+        # Create a UDP socket for the server 
         server_socket = socket(AF_INET, SOCK_DGRAM)
+        # Bind the server socket to the provided IP address and port number
         server_socket.bind((ip_address, port))
 
+        # Print a message to indicate that the server is listening for incoming data
         print(f"Server listening on {ip_address}:{port}")
+    
+    # If there is an exception raised during the execution of the program, print an error message and exit
+    except Exception as e:
+        print("Failed to bind. Error:", e)
+        sys.exit()
 
+    try:
+        # Call the appropriate function based on the reliability method specified, and receive the data accordingly
         if reliable_method == "SAW":
             received_data = RECV_SAW(server_socket, test)
         elif reliable_method == "GBN":
@@ -79,17 +91,18 @@ def run_server(ip_address, port, reliable_method, window_size, test):
         elif reliable_method == "SR":
             received_data = RECV_SR(server_socket, test, window_size)
 
+        # Open the file at the specified path and write the received data to it
         with open(file_path, "wb") as file:
             file.write(received_data)
 
+        # Print a message to indicate that the file has been received and saved
         print(f"File received and saved to {file_path}")
 
+    # If the user interrupts the program with Ctrl+C, exit gracefully
     except KeyboardInterrupt:
         sys.exit()
 
-    except Exception as e:
-        print("Failed to bind. Error:", e)
-        sys.exit()
+
 
 
 def run_client(ip_address, port, reliable_method, file_path, window_size, test):
@@ -97,7 +110,7 @@ def run_client(ip_address, port, reliable_method, file_path, window_size, test):
     Sends a file from to a server using different reliability protocols (SAW, GBN, SR)
     
     Args:
-        ip_address(str): the IP address to bind the socket to
+        ip_address(IPv4Address): the IP address to bind the socket to
         port(int): the port number to bind the socket to
         reliable_method(str): the reliability function to use, "SAW", "GBN", or "SR"
         file_path(str): the full path of the file to transfer
@@ -108,19 +121,24 @@ def run_client(ip_address, port, reliable_method, file_path, window_size, test):
         Void, prints the calculated throughput of the data transmission
     '''
     try:
+        # Create a UDP socket for sending data
         sender_sock = socket(AF_INET, SOCK_DGRAM)
         addr = (ip_address, port)
 
+        # Open the file specified by the user
         with open(file_path, "rb") as f:
             file_data = f.read()
 
+    # Handle an IOError if the file cannot be opened
     except IOError:
         print("Error opening file")
         sys.exit()
 
     try:
+        # Record the start time for sending the file
         start_time = time.monotonic()
 
+        # Call the appropriate function to send the file based on the reliability method specified 
         if reliable_method == "SAW":
             SEND_SAW(sender_sock, addr, file_data)
         elif reliable_method == "GBN":
@@ -128,13 +146,16 @@ def run_client(ip_address, port, reliable_method, file_path, window_size, test):
         elif reliable_method == "SR":
             SEND_SR(sender_sock, addr, file_data, window_size, test)
 
+        # Calculate the elapsed time for sending the file and the throughput in Mbps
         elapsed_time = time.monotonic() - start_time
         throughput = (len(file_data) * 8 / elapsed_time) / (1024**2)
         print(f"\nBandwidth:{throughput:.2f}")
 
+    # If the user interrupts the program with Ctrl+C, close socket and exit gracefully
     except KeyboardInterrupt:
         sender_sock.close()
         sys.exit()
+
 
 # Main function to run the tool
 if __name__ == '__main__':
