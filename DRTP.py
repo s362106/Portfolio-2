@@ -328,11 +328,11 @@ def SEND_SAW(sock, addr, data):
     sequence_num = 1
     last_sent_packet = {}
 
-    # Initialize the estimated RTT 
-    est_rtt = 0.5
-
     # Loop until there is no data to send
     while True:
+        # Initialize the estimated RTT 
+        est_rtt = 0.5
+
         # If no more data, close the connection and exit loop
         if not data:
             close_conn(sock, addr, sequence_num)
@@ -362,13 +362,14 @@ def SEND_SAW(sock, addr, data):
                 # If received ACK message is valid, update sequence number, empty sent packet list and set received_ack to True
                 if ack and ack_num == sequence_num:
                     print("ACK msg: ack_num =", ack_num)
-                    sequence_num += 1
-                    received_ack = True
-                    last_sent_packet = {}
 
                     # Calculate the roundtrip time and update the estimated RTT to 4RTT
                     rtt = time.monotonic() - send_time
                     est_rtt = 4 * rtt
+
+                    sequence_num += 1
+                    received_ack = True
+                    last_sent_packet = {}
 
                 # If the acknowledgement message is a duplicate, resend the previous packet with the previous sequence number
                 elif ack and ack_num == sequence_num - 1:
@@ -379,9 +380,6 @@ def SEND_SAW(sock, addr, data):
             except timeout:
                 print("Timeout occurred. Resending packet with seq_num =", sequence_num)
                 send(sock, last_sent_packet[sequence_num], sequence_num, addr)
-
-                # Double the current RTT to handle multiple timeouts
-                est_rtt *= 2 
 
 
 # server
@@ -463,16 +461,14 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
     unacked_packets = {}
     data_offset = 0
     fin_sent = False
-
-    # Initialize the estimated RTT 
-    est_rtt = 0.5
     
     # Loop until FIN message is sent
     while not fin_sent:
+        # Initialize the estimated RTT 
+        est_rtt = 0.5
         # Send packets while the number of unacknowledged packets is less than the window size
         while next_seq_num < base_seq_num + window_size:
             # Calculate the size of the next chunk of data to send
-            # It is the minimum of 1460 bytes and the remaining data to be sent
             chunk_size = min(1460, len(data) - data_offset)
             # If no more data and no more unacknowledged packets, send FIN message
             if chunk_size == 0:
@@ -488,11 +484,10 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                 else:
                     break
 
-            # This line slices the next chunk of data to be sent from data
+            # Slices the next chunk of data to be sent from data
             chunk_data = data[data_offset : data_offset + chunk_size]
 
-            # If skip_seq_num is True and the next sequence number is 5, skip sending the packet and continue to the
-            # next iteration of the loop
+            # Skip sending packet with sequence number 5 if skip_seq_num is True.
             if skip_seq_num and next_seq_num == 5:
                 skip_seq_num = False
                 print("Skipping seq_num =", next_seq_num)
@@ -518,33 +513,31 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                 ack_msg, addr = send_sock.recvfrom(1472)
                 seq_num, ack_num, flags, win = parse_header(ack_msg[:12])
                 syn, ack, fin = parse_flags(flags)
-                # If ack flag is set and packet has correct acknowledge number,
-                # move the base sequence number for the window
+
+                # If ACK is received and within current window, update base_seq_num and remove acked packets from unacked packets
                 if ack and ack_num >= base_seq_num:
                     print("ACK msg: ack_num =", ack_num)
+
+                    # Calculate the roundtrip time and update the estimated RTT to 4RTT
+                    rtt = time.monotonic() - send_time
+                    est_rtt = 4 * rtt
+                    
+                    # Update base_seq_num
                     base_seq_num = ack_num + 1
                     # Update unacked packets list
                     new_unacked_packets = {}
-
                     for seq_num, packet_data in unacked_packets.items():
                         if seq_num >= base_seq_num:
                             new_unacked_packets[seq_num] = packet_data
 
                     unacked_packets = new_unacked_packets
 
-                    # Calculate the roundtrip time and update the estimated RTT to 4RTT
-                    rtt = time.monotonic() - send_time
-                    est_rtt = 4 * rtt
-
-            # If timeout occurs, resend all unacknowledged packets with original payload
+            # Resend all unacked packets with original payload that timed out
             except timeout:
                 print("Timeout occurred. Resending packets")
                 for seq_num, packet_data in unacked_packets.items():
                     new_packet = create_packet(seq_num, 0, 0, 0, packet_data)
                     send_sock.sendto(new_packet, addr)
-
-                # Double the current RTT to handle multiple timeouts
-                est_rtt *= 2
                 
     # Wait for ACK for the FIN message
     while True:
@@ -554,12 +547,12 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
             seq_num, ack_num, flags, win = parse_header(ack_msg[:12])
             syn, ack, fin = parse_flags(flags)
 
+            # Exits if ack for FIN is received
             if ack and ack_num == next_seq_num:
-                print("ACK for FIN msg received. Closing connection and exiting...")
-                send_sock.close()
+                print("ACK for FIN msg received. Exiting...")
                 break
 
-        except timeout:
+        except timeout:   # Exits due to timeout
             print("Timeout occurred while waiting for ACK for FIN msg. Exiting...")
             break
 
@@ -660,13 +653,16 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
     data_offset = 0
     fin_sent = False
 
+    # Loop until FIN message is sent
     while not fin_sent:  # While FIN packet is not sent
         # Initialize the estimated RTT
         est_rtt = 0.5
-        # Send packets within the window
+        # Send packets while the number of unacknowledged packets is less than the window size
         while next_seq_num < base_seq_num + window_size:
+            # Calculate the size of the next chunk of data to send
             chunk_size = min(1460, len(data) - data_offset)
-            if chunk_size == 0:  # Send FIN packet if all data has been sent and acked
+            # If no more data and no more unacknowledged packets, send FIN message
+            if chunk_size == 0:  
                 if not unacked_packets:
                     # All data has been sent and acknowledged, send FIN message
                     fin_packet = create_packet(next_seq_num, 0, 2, 0, b"")
@@ -674,12 +670,15 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
                     print("FIN msg sent. Waiting for ACK...")
                     fin_sent = True
                     break
+
+                #  If there are unacknowledged packets, break out of the inner loop to wait for acknowledgements
                 else:
                     break
 
-            # Create packet and send it
+            # Slices the next chunk of data to be sent from data
             chunk_data = data[data_offset : data_offset + chunk_size]
 
+            # Skip sending packet with sequence number 5 if skip_seq_num is True.
             if skip_seq_num and next_seq_num == 5:
                 skip_seq_num = False
                 print("Skipping seq_num =", next_seq_num)
@@ -688,25 +687,26 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
                 next_seq_num += 1
                 data_offset += chunk_size
                 continue
-
+            
+            # Send the packet, add it to unacked packets and update next seq num and data offset
             send(send_sock, chunk_data, next_seq_num, addr)
-
-            # Add packet to unacked packets and update next seq num and data offset
             unacked_packets[next_seq_num] = (chunk_data, time.monotonic())
             next_seq_num += 1
             data_offset += chunk_size
 
-        # Check for ACKs
+        # If FIN message not sent, wait for acknowledgement for sent packet
         if not fin_sent:
+            # Set timeout for receiving ACK message
             send_sock.settimeout(est_rtt)
             try:
+                # Receive ACK message, parse header and flags
                 ack_msg, addr = send_sock.recvfrom(1472)
                 seq_num, ack_num, flags, win = parse_header(ack_msg[:12])
                 syn, ack, fin = parse_flags(flags)
 
                 # If ACK is received and within current window, update base_seq_num and remove acked packets from unacked packets
                 if ack and ack_num >= base_seq_num:
-                    print("ACK msg: ack_num =",ack_num)
+                    print("ACK msg: ack_num =", ack_num)
 
                     # Calculate the roundtrip time and update the estimated RTT to 4RTT
                     rtt = time.monotonic() - unacked_packets[ack_num][1]
