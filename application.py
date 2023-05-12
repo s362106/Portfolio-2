@@ -49,21 +49,34 @@ def check_port(port_number):
     return port_number
 
 
-def run_server(ip, port, reliability_func, window_size, test):
+def run_server(ip_address, port, reliable_method, window_size, test):
+    '''
+    Receives data using the specified reliability function and saves the received file to "received_file.jpg"
+
+    Args:
+        ip_address(str): the IP address to bind the socket to
+        port(int): the port number to bind the socket to
+        reliable_method(str): the reliability function to use, "SAW", "GBN", or "SR"
+        window_size(int): the size of the sliding window, which is only used for "SR"
+        test(boolean): whether or not to enable test mode, which is only used for "SAW" or "GBN"
+
+    Returns:
+        Void
+    '''
     file_path = "received_file.jpg"
     received_data = b""
 
     try:
         server_socket = socket(AF_INET, SOCK_DGRAM)
-        server_socket.bind((ip, port))
+        server_socket.bind((ip_address, port))
 
-        print(f"Server listening on {ip}:{port}")
+        print(f"Server listening on {ip_address}:{port}")
 
-        if reliability_func == "SAW":
+        if reliable_method == "SAW":
             received_data = RECV_SAW(server_socket, test)
-        elif reliability_func == "GBN":
+        elif reliable_method == "GBN":
             received_data = RECV_GBN(server_socket, test)
-        elif reliability_func == "SR":
+        elif reliable_method == "SR":
             received_data = RECV_SR(server_socket, test, window_size)
 
         with open(file_path, "wb") as file:
@@ -79,10 +92,24 @@ def run_server(ip, port, reliability_func, window_size, test):
         sys.exit()
 
 
-def run_client(ip, port, reliability_func, file_path, window_size, test):
+def run_client(ip_address, port, reliable_method, file_path, window_size, test):
+    '''
+    Sends a file from to a server using different reliability protocols (SAW, GBN, SR)
+    
+    Args:
+        ip_address(str): the IP address to bind the socket to
+        port(int): the port number to bind the socket to
+        reliable_method(str): the reliability function to use, "SAW", "GBN", or "SR"
+        file_path(str): the full path of the file to transfer
+        window_size(int): the size of the sliding window, which is only used for "SR" and "GBN"
+        test(boolean): whether or not to enable test mode, which is only used for "SAW" and "GBN"
+
+    Returns:
+        Void, prints the calculated throughput of the data transmission
+    '''
     try:
         sender_sock = socket(AF_INET, SOCK_DGRAM)
-        addr = (ip, port)
+        addr = (ip_address, port)
 
         with open(file_path, "rb") as f:
             file_data = f.read()
@@ -94,11 +121,11 @@ def run_client(ip, port, reliability_func, file_path, window_size, test):
     try:
         start_time = time.monotonic()
 
-        if reliability_func == "SAW":
+        if reliable_method == "SAW":
             SEND_SAW(sender_sock, addr, file_data)
-        elif reliability_func == "GBN":
+        elif reliable_method == "GBN":
             SEND_GBN(sender_sock, addr, file_data, window_size, test)
-        elif reliability_func == "SR":
+        elif reliable_method == "SR":
             SEND_SR(sender_sock, addr, file_data, window_size, test)
 
         elapsed_time = time.monotonic() - start_time
@@ -114,6 +141,7 @@ if __name__ == '__main__':
     # define the argument parser and provide a description
     parser = argparse.ArgumentParser(description="A custom reliable data transfer protocol", epilog="End of help")
 
+    # add command line arguments to the parser
     parser.add_argument('-s', '--server', action='store_true', help='Run in server mode')
     parser.add_argument('-c', '--client', action='store_true', help='Run in client mode')
     parser.add_argument('-i', '--ip_address', type=check_ip, default='127.0.0.1', help='Choose IP address')
@@ -137,24 +165,26 @@ if __name__ == '__main__':
 
     # if the user specified -s flag, call run_server with the provided arguments
     if args.server:
+        # if the user specified "SKIP_ACK" set 'True' for test
         if args.test == "SKIP_ACK":
             run_server(args.ip_address, args.port, args.reliability, args.window, True)
-
+        # if test not specified set 'False' for test
         elif not args.test:
             run_server(args.ip_address, args.port, args.reliability, args.window, False)
-
+        # If the user provided an invalid testing argument, print an error message and exit
         else:
             print("Type in 'skip_ack' as argument to test skipping ack msg")
             sys.exit()
 
     # if the user specified -c flag, call run_client with the provided arguments
     if args.client:
+        # if the user specified "LOSS" set 'True' for test
         if args.test == "LOSS":
             run_client(args.ip_address, args.port, args.reliability, args.file_name, args.window, True)
-
+        # if test not specified set 'False' for test
         elif not args.test:
             run_client(args.ip_address, args.port, args.reliability, args.file_name, args.window, False)
-
+        # If the user provided an invalid testing argument, print an error message and exit
         else:
             print("Type in 'loss' as argument to test skipping sequence number")
             sys.exit()
