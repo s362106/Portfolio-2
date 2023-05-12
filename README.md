@@ -63,21 +63,21 @@ Run the file transfer application with the three reliable protocols (`GBN` and `
 
 First, run server with respective reliable method, e.g.
 
-    python3 application.py -s -r SAW
+    python3 application.py -s -i 10.0.1.2 -r SAW
 
 The client for the different scenarios with respective reliable method 
 
 1. Run `SAW` with three RTT values: 25, 50, and 100ms, e.g.
 
-        python3 application.py -c -f <file_to_transfer.jpg> -r SAW
+        python3 application.py -c -i 10.0.1.2 -f <file_to_transfer.jpg> -r SAW
 
 2. Run `GBN` with window size 5 for three different RTT values. Repeat the same for window sizes 10 and 15, e.g.
 
-        python3 application.py -c -f <file_to_transfer.jpg> -r GBN -w 5
+        python3 application.py -c -i 10.0.1.2 -f <file_to_transfer.jpg> -r GBN -w 5
 
 3. Run `SR` with window size 5 for three different RTT values. Repeat the same for window sizes 10 and 15, e.g.
 
-        python3 application.py -c -f <file_to_transfer.jpg> -r SR -w 5
+        python3 application.py -c -i 10.0.1.2 -f <file_to_transfer.jpg> -r SR -w 5
 
 
 ## Test case 2
@@ -85,22 +85,22 @@ Skip an acknowledgment message at the receiver side to trigger retransmission wi
 
 Run server with respective reliable method, e.g.
 
-    python3 application.py -s -r SAW -t skip_ack
+    python3 application.py -s -i 10.0.1.2 -r SAW -t SKIP_ACK
 
 Run client with respective reliable method, e.g.
 
-    python3 application.py -c -f <file_to_transfer.jpg> -r SAW
+    python3 application.py -c -i 10.0.1.2 -f <file_to_transfer.jpg> -r SAW
 
 ## Test case 3
 Skip a sequence number at the sender side to show the out-of-order delivery effect, and trigger retransmission with the `GBN` and `SR` reliable protocols.
 
 Run server with respective reliable method, e.g.
 
-    python3 application.py -s -r GBN
+    python3 application.py -s -i 10.0.1.2 -r GBN
 
 Run client with respective reliable method, e.g.
 
-    python3 application.py -c -r GBN -t loss
+    python3 application.py -c -i 10.0.1.2 -r GBN -t LOSS
 
 ## Test case 4
 Test case 4 are in fact a summary of the results found in Tests 2 and 3, which are reported in PDF file.

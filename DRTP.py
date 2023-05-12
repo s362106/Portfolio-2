@@ -89,7 +89,6 @@ def send_ack(sock, ack_num, addr):
     Returns:
         None
     """
-
     ack_msg = create_packet(0, ack_num, 4, 64, b"")  # flags = 0 1 0 0 = 4 --> ACK flag value
     sock.sendto(ack_msg, addr)
 
@@ -105,7 +104,6 @@ def initiate_handshake(sock, addr):
     Returns:
         None
     """
-
     global handshake_complete
 
     # If handshake has not yet been completed, establish connection
@@ -152,7 +150,6 @@ def handle_handshake(sock):
     Returns:
         None
     """
-
     # Import global variable
     global handshake_complete
 
@@ -200,13 +197,13 @@ def close_conn(sock, addr, next_seq_num):
     Returns:
         None
     """
-
     flags = 2  # 0 0 1 0 = FIN flag value
     # Create packet with current sequence number and to destination address
     fin_msg = create_packet(next_seq_num, 0, flags, 0, b"")
     sock.sendto(fin_msg, addr)
 
     fin_ack_received = False
+
     while not fin_ack_received:
         # Set timeout of 0.5 seconds for the socket
         sock.settimeout(0.5)
@@ -243,7 +240,6 @@ def close_conn(sock, addr, next_seq_num):
             sock.sendto(fin_msg, addr)
 
 
-# server
 def RECV_SAW(sock, skip_ack):
     """
     Receives data packets sent by the sender and sends ACK packets to confirm receipt of each packet
@@ -255,7 +251,6 @@ def RECV_SAW(sock, skip_ack):
     Returns:
         bytes: Concatenated data from the received packets
     """
-
     # Perform handshake with sender
     handle_handshake(sock)
     # Sequence number of the next expected packet
@@ -307,7 +302,6 @@ def RECV_SAW(sock, skip_ack):
             return received_data
 
 
-# client
 def SEND_SAW(sock, addr, data):
     """
     Sends data using the Selective Acknowledgment Protocol
@@ -320,7 +314,6 @@ def SEND_SAW(sock, addr, data):
     Returns:
         Void
     """
-
     # Initiate three-way handshake with the receiver
     initiate_handshake(sock, addr)
 
@@ -382,7 +375,6 @@ def SEND_SAW(sock, addr, data):
                 send(sock, last_sent_packet[sequence_num], sequence_num, addr)
 
 
-# server
 def RECV_GBN(sock, skip_ack):
     """
     Receive data using Go back N protocol
@@ -437,7 +429,6 @@ def RECV_GBN(sock, skip_ack):
                 pass
 
 
-# client
 def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
     """
     Sends data using the Go-Back-N protocol
@@ -557,7 +548,6 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
             break
 
 
-# server
 def RECV_SR(sock, skip_ack, window_size):
     """
     Receives data from the sender using Selective Repeat protocol
@@ -570,9 +560,10 @@ def RECV_SR(sock, skip_ack, window_size):
     Returns:
         A table of all of the received data in bytes, it is used application.py to transfer all the data to a file
     """
-
+    # Perform three-way handshake
     handle_handshake(sock)
 
+    # Initialize variables
     expected_seq_num = 1  # expected sequence number of the next in-order packet
     received_data = b''
     unacked_packets = {}  # dictionary of unacknowledged packets, the keys are the sequence no. of the packets
@@ -643,10 +634,10 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
     Returns:
         Void
     """
-
+    # Initiate three-way handshake
     initiate_handshake(send_sock, addr)
 
-    # Initialise variables
+    # Initialize variables
     next_seq_num = 1
     base_seq_num = 1
     unacked_packets = {}
