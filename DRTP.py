@@ -689,11 +689,10 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
                 data_offset += chunk_size
                 continue
 
-            send_packet = create_packet(next_seq_num, 0, 0, 0, chunk_data)
-            send_sock.sendto(send_packet, addr)
+            send(send_sock, chunk_data, next_seq_num, addr)
 
             # Add packet to unacked packets and update next seq num and data offset
-            unacked_packets[next_seq_num] = (send_packet, time.monotonic())
+            unacked_packets[next_seq_num] = (chunk_data, time.monotonic())
             next_seq_num += 1
             data_offset += chunk_size
 
@@ -701,9 +700,9 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
         if not fin_sent:
             send_sock.settimeout(est_rtt)
             try:
-                ack_packet, addr = send_sock.recvfrom(1472)
-                ack_seq_num, ack_num, ack_flags, ack_win = parse_header(ack_packet[:12])
-                ack_syn, ack, ack_fin = parse_flags(ack_flags)
+                ack_msg, addr = send_sock.recvfrom(1472)
+                seq_num, ack_num, flags, win = parse_header(ack_msg[:12])
+                syn, ack, fin = parse_flags(flags)
 
                 # If ACK is received and within current window, update base_seq_num and remove acked packets from unacked packets
                 if ack and ack_num >= base_seq_num:
@@ -734,9 +733,9 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
     while True:
         send_sock.settimeout(est_rtt)
         try:
-            ack_packet, addr = send_sock.recvfrom(1472)
-            ack_seq_num, ack_num, ack_flags, ack_win = parse_header(ack_packet[:12])
-            ack_syn, ack, ack_fin = parse_flags(ack_flags)
+            ack_msg, addr = send_sock.recvfrom(1472)
+            seq_num, ack_num, flags, win = parse_header(ack_msg[:12])
+            syn, ack, fin = parse_flags(flags)
 
             # Exits if ack for FIN is received
             if ack and ack_num == next_seq_num:
