@@ -515,6 +515,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                     
                     # Update base_seq_num
                     base_seq_num = ack_num + 1
+
                     # Update unacked packets list
                     new_unacked_packets = {}
                     for seq_num, packet_data in unacked_packets.items():
@@ -674,14 +675,16 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
                 skip_seq_num = False
                 print("Skipping seq_num =", next_seq_num)
                 data_packet = create_packet(next_seq_num, 0, 0, 0, chunk_data)
-                unacked_packets[5] = (data_packet, time.monotonic())
+                unacked_packets[next_seq_num] = data_packet
                 next_seq_num += 1
                 data_offset += chunk_size
                 continue
+
+            send_time = time.monotonic()    # Record packet send time
             
             # Send the packet, add it to unacked packets and update next seq num and data offset
             send(send_sock, chunk_data, next_seq_num, addr)
-            unacked_packets[next_seq_num] = (chunk_data, time.monotonic())
+            unacked_packets[next_seq_num] = chunk_data
             next_seq_num += 1
             data_offset += chunk_size
 
@@ -700,25 +703,20 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
                     print("ACK msg: ack_num =", ack_num)
 
                     # Calculate the roundtrip time and update the estimated RTT to 4RTT
-                    rtt = time.monotonic() - unacked_packets[ack_num][1]
+                    rtt = time.monotonic() - send_time
                     est_rtt = 4 * rtt
 
-                    # Update base_seq_num and remove acknowledged packets from unacked_packets
-                    base_seq_num = ack_num + 1
-                    for seq_num in list(unacked_packets.keys()):
-                        if seq_num < base_seq_num:
-                            unacked_packets.pop(seq_num)
+                    # Remove acknowledged packets from unacked_packets and update base_seq_num 
+                    if ack_num in unacked_packets:
+                        del unacked_packets[ack_num]
+                        base_seq_num = ack_num + 1
 
             # Resend unacked packets that timed out
             except timeout:
                 print("Timeout occurred. Resending packets")
-                # Resend unacknowledged packets that have timed out
-                current_time = time.monotonic()
-                for seq_num, packet_info in unacked_packets.items():
-                    packet, timestamp = packet_info
-                    if current_time - timestamp >= 0.5:
-                        send_sock.sendto(packet, addr)
-                        unacked_packets[seq_num] = (packet, current_time)
+                for seq_num, packet_data in unacked_packets.items():
+                    new_packet = create_packet(seq_num, 0, 0, 0, packet_data)
+                    send_sock.sendto(new_packet, addr)
 
     # Wait for ACK for the FIN message
     while True:
