@@ -674,14 +674,13 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
             if skip_seq_num and next_seq_num == 5:
                 skip_seq_num = False
                 print("Skipping seq_num =", next_seq_num)
-                data_packet = create_packet(next_seq_num, 0, 0, 0, chunk_data)
-                unacked_packets[next_seq_num] = data_packet
+                unacked_packets[next_seq_num] = chunk_data
                 next_seq_num += 1
                 data_offset += chunk_size
                 continue
 
             send_time = time.monotonic()    # Record packet send time
-            
+
             # Send the packet, add it to unacked packets and update next seq num and data offset
             send(send_sock, chunk_data, next_seq_num, addr)
             unacked_packets[next_seq_num] = chunk_data
