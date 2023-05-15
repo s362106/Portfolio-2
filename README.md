@@ -7,7 +7,7 @@ There are three reliability functions:
 2. `GBN`, *Go-Back-N protocol*:
     - The sender uses a fixed window size of 5 packets to transfer data, where the sequence numbers represent the packets (packet 1 = 1, packet 2 = 2, etc.). If no ACK packet is received before timeout, all unacknowledged packets are assumed to be lost and are retransmitted. The receiver processes incoming packets in order, and any out-of-order packets indicate packet loss or reordering in the network. In such cases, the DRTP receiver does not acknowledge or process the packets and may discard them.
 3. `SR`, *Selective-Repeat protocol*:
-    - Based of Go-Back-N protocol, but it differs in that it places out-of-order packets in the correct location in the receive buffer instead of discarding them. 
+    - Based of Go-Back-N protocol, but it differs in that it buffers out-of-order packets instead of discarding them as GBN does. 
 
 # How to run the program
 To use the file transfer application (`application.py`):
