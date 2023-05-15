@@ -160,10 +160,8 @@ def handle_handshake(sock):
             try:
                 # Receive SYN packet from sender
                 syn_packet, addr = sock.recvfrom(1472)
-                # Extract the header from the packet
-                header = syn_packet[:12]
-                # Parse the flags from the header
-                syn, ack, fin = parse_flags(parse_header(header)[2])
+                header = syn_packet[:12]        # Extract the header from the packet
+                syn, ack, fin = parse_flags(parse_header(header)[2])    # Parse the flags from the header
 
                 # If SYN flag is set and no other flags are set
                 if syn and not ack and not fin:
@@ -207,15 +205,13 @@ def close_conn(sock, addr, next_seq_num):
     while not fin_ack_received:
         # Set timeout of 0.5 seconds for the socket
         sock.settimeout(0.5)
+
         try:
             # Receive message from the destination address
             fin_ack_msg, addr = sock.recvfrom(1472)
-            # Extract the header from the message
-            header_from_msg = fin_ack_msg[:12]
-            # Parse the header
-            seq_num, ack_num, flags, win = parse_header(header_from_msg)
-            # Parse the flags
-            syn, ack, fin = parse_flags(flags)
+            header_from_msg = fin_ack_msg[:12]      # Extract the header from the message
+            seq_num, ack_num, flags, win = parse_header(header_from_msg)    # Parse the header
+            syn, ack, fin = parse_flags(flags)      # Parse the flags
 
             # If only ACK flag is set with the correct ack_num
             if ack and not syn and not fin and ack_num == next_seq_num:
@@ -253,18 +249,17 @@ def RECV_SAW(sock, skip_ack):
     """
     # Perform handshake with sender
     handle_handshake(sock)
-    # Sequence number of the next expected packet
+
+    # Initialize variables
     expected_seq_num = 1
-    # Concatenated data of all received packets
-    received_data = b""
+    received_data = b""     # Concatenated data of all received packets
 
     while True:
         # Receive packet from sender
         msg, addr = sock.recvfrom(1472)
-
-        header_from_msg = msg[:12]
-        seq_num, ack_num, flags, win = parse_header(header_from_msg)
-        syn, ack, fin = parse_flags(flags)
+        header_from_msg = msg[:12]              # Extract the header from the received message 
+        seq_num, ack_num, flags, win = parse_header(header_from_msg)    # Parse the header fields
+        syn, ack, fin = parse_flags(flags)      # Parse the flags
 
         # If flag is True, skip the first ACK message
         if skip_ack:
@@ -317,7 +312,7 @@ def SEND_SAW(sock, addr, data):
     # Initiate three-way handshake with the receiver
     initiate_handshake(sock, addr)
 
-    # Set initial sequence number to 1, and declare empty list to store payload of last sent packet
+    # Initialize variables
     sequence_num = 1
     last_sent_packet = {}
 
@@ -342,15 +337,17 @@ def SEND_SAW(sock, addr, data):
 
         # Wait for ACK message from the receiver
         received_ack = False
+
         while not received_ack:
             # Set the timeout to the estimated RTT times 4
             sock.settimeout(est_rtt)
 
             try:
-                ack_msg, addr = sock.recvfrom(1472)  # Receive message from destination address
-                header_from_msg = ack_msg[:12]  # Extract the header from the received message
+                # Receive message from destination address
+                ack_msg, addr = sock.recvfrom(1472)     
+                header_from_msg = ack_msg[:12]          # Extract the header from the received message
                 seq_num, ack_num, flags, win = parse_header(header_from_msg)  # Parse the header fields
-                syn, ack, fin = parse_flags(flags)  # Parse the flags
+                syn, ack, fin = parse_flags(flags)      # Parse the flags
 
                 # If received ACK message is valid, update sequence number, empty sent packet list and set received_ack to True
                 if ack and ack_num == sequence_num:
@@ -457,6 +454,7 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
     while not fin_sent:
         # Initialize the estimated RTT 
         est_rtt = 0.5
+
         # Send packets while the number of unacknowledged packets is less than the window size
         while next_seq_num < base_seq_num + window_size:
             # Calculate the size of the next chunk of data to send
@@ -487,7 +485,8 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
                 data_offset += chunk_size
                 continue
             
-            send_time = time.monotonic()  # Record packet send time
+            # Record packet send time
+            send_time = time.monotonic() 
 
             # Send the packet, add its data to unacked_packets and increment sequence number and data_offset
             send(send_sock, chunk_data, next_seq_num, addr)
@@ -534,7 +533,9 @@ def SEND_GBN(send_sock, addr, data, window_size, skip_seq_num):
     # Wait for ACK for the FIN message
     while True:
         send_sock.settimeout(est_rtt)
+
         try:
+            # Receive ACK message, parse header and flags
             ack_msg, addr = send_sock.recvfrom(1472)
             seq_num, ack_num, flags, win = parse_header(ack_msg[:12])
             syn, ack, fin = parse_flags(flags)
@@ -566,7 +567,7 @@ def RECV_SR(sock, skip_ack, window_size):
 
     # Initialize variables
     expected_seq_num = 1  # expected sequence number of the next in-order packet
-    received_data = b''
+    received_data = b""
     unacked_packets = {}  # dictionary of unacknowledged packets, the keys are the sequence no. of the packets
 
     while True:
@@ -644,11 +645,12 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
     unacked_packets = {}
     data_offset = 0
     fin_sent = False
-
+    
     # Loop until FIN message is sent
-    while not fin_sent:  # While FIN packet is not sent
+    while not fin_sent:
         # Initialize the estimated RTT
         est_rtt = 0.5
+
         # Send packets while the number of unacknowledged packets is less than the window size
         while next_seq_num < base_seq_num + window_size:
             # Calculate the size of the next chunk of data to send
@@ -678,8 +680,9 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
                 next_seq_num += 1
                 data_offset += chunk_size
                 continue
-
-            send_time = time.monotonic()    # Record packet send time
+            
+            # Record packet send time
+            send_time = time.monotonic()    
 
             # Send the packet, add it to unacked packets and update next seq num and data offset
             send(send_sock, chunk_data, next_seq_num, addr)
@@ -720,6 +723,7 @@ def SEND_SR(send_sock, addr, data, window_size, skip_seq_num):
     # Wait for ACK for the FIN message
     while True:
         send_sock.settimeout(est_rtt)
+
         try:
             ack_msg, addr = send_sock.recvfrom(1472)
             seq_num, ack_num, flags, win = parse_header(ack_msg[:12])

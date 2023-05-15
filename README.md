@@ -103,4 +103,4 @@ Run client with respective reliable method, e.g.
     python3 application.py -c -i 10.0.1.2 -r GBN -t LOSS
 
 ## Test case 4
-Test case 4 are in fact a summary of the results found in Tests 2 and 3, which are reported in PDF file.
+Test case 4 consists of fact analyzing, discussing and summarizing the results found in Tests 2 and 3, which is what we have in the PDF file.

@@ -194,7 +194,7 @@ if __name__ == '__main__':
             run_server(args.ip_address, args.port, args.reliability, args.window, False)
         # If the user provided an invalid testing argument, print an error message and exit
         else:
-            print("Type in 'skip_ack' as argument to test skipping ack msg")
+            print("For server: type in 'skip_ack' as argument to test skipping ack message")
             sys.exit()
 
     # if the user specified -c flag, call run_client with the provided arguments
@@ -207,5 +207,5 @@ if __name__ == '__main__':
             run_client(args.ip_address, args.port, args.reliability, args.file_name, args.window, False)
         # If the user provided an invalid testing argument, print an error message and exit
         else:
-            print("Type in 'loss' as argument to test skipping sequence number")
+            print("For client: type in 'loss' as argument to test skipping sequence number")
             sys.exit()
