@@ -18,19 +18,21 @@ def check_ip(ip_address):
     try:
         # convert argument to an IPv4 address
         ipaddress.ip_address(ip_address)
+
     except:
         # raise error if not a valid dotted decimal notation
         raise argparse.ArgumentTypeError("IP address must be in format e.g. 10.0.0.2")
+    
     # return dotted decimal notation
     return ip_address
 
 
 def check_port(port_number):
     '''
-    Checks if provided port number is valid (-i flag)
+    Checks if provided port number is valid (-p flag)
 
     Args:
-        port_number(str): holds the provided IP address
+        port_number(str): holds the provided port number
 
     Returns:
         the port number (int) if it is valid, else an error is raised
@@ -38,6 +40,7 @@ def check_port(port_number):
     try:
         # convert argument to an integer data type
         port_number = int(port_number)
+
     except ValueError:
         # raise error if not integer
         raise argparse.ArgumentTypeError("Port must be an integer")
@@ -45,6 +48,7 @@ def check_port(port_number):
     # raise error if not in range
     if not 1024 <= port_number <= 65535:
         raise argparse.ArgumentTypeError("Port must be in the range [1024, 65535]")
+    
     # return int
     return port_number
 
