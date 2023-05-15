@@ -107,8 +107,6 @@ def run_server(ip_address, port, reliable_method, window_size, test):
         sys.exit()
 
 
-
-
 def run_client(ip_address, port, reliable_method, file_path, window_size, test):
     '''
     Sends a file from to a server using different reliability protocols (SAW, GBN, SR)
