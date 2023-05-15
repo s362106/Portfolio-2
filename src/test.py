@@ -1,7 +1,7 @@
 import socket
 import argparse
 
-from DRTP import *
+from src.DRTP import *
 import threading
 
 def test_packet_loss():

@@ -12,7 +12,7 @@ There are three reliability functions:
 # How to run the program
 To use the file transfer application (`application.py`):
 1. You need to have Python3 installed in your system.
-2. In two terminals, navigate to the directory where `application.py` and `DRTP.py` are located.
+2. In two terminals, navigate to the directory where the code `application.py` and `DRTP.py` are located.
 3. Start the program in server mode on one terminal, and then client mode on the other terminal.
 
 ## Server mode

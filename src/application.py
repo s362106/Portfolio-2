@@ -3,7 +3,7 @@ from socket import *
 import ipaddress
 import argparse
 import sys
-from DRTP import *
+from src.DRTP import *
 
 def check_ip(ip_address):
     '''
